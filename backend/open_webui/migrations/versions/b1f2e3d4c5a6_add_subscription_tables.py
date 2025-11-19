@@ -10,6 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from open_webui.migrations.util import get_existing_tables
 
 
 # revision identifiers, used by Alembic.
@@ -20,8 +21,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    existing_tables = set(get_existing_tables())
+    
     # Create subscription_plan table
-    op.create_table(
+    if "subscription_plan" not in existing_tables:
+        op.create_table(
         "subscription_plan",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("plan_name", sa.String(), nullable=False),
@@ -39,10 +43,11 @@ def upgrade() -> None:
         sa.Column("created_at", sa.BigInteger(), nullable=True),
         sa.Column("updated_at", sa.BigInteger(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-    )
+        )
 
     # Create user_subscription table
-    op.create_table(
+    if "user_subscription" not in existing_tables:
+        op.create_table(
         "user_subscription",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("user_id", sa.String(), nullable=False),
@@ -56,21 +61,24 @@ def upgrade() -> None:
         sa.Column("created_at", sa.BigInteger(), nullable=True),
         sa.Column("updated_at", sa.BigInteger(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-    )
+        )
 
     # Create indexes for better performance
-    op.create_index(
-        "idx_subscription_plan_is_active", "subscription_plan", ["is_active"]
-    )
-    op.create_index(
-        "idx_subscription_plan_plan_type", "subscription_plan", ["plan_type"]
-    )
-    op.create_index("idx_user_subscription_user_id", "user_subscription", ["user_id"])
-    op.create_index("idx_user_subscription_plan_id", "user_subscription", ["plan_id"])
-    op.create_index("idx_user_subscription_status", "user_subscription", ["status"])
-    op.create_index(
-        "idx_user_subscription_end_date", "user_subscription", ["end_date"]
-    )
+    if "subscription_plan" not in existing_tables:
+        op.create_index(
+            "idx_subscription_plan_is_active", "subscription_plan", ["is_active"]
+        )
+        op.create_index(
+            "idx_subscription_plan_plan_type", "subscription_plan", ["plan_type"]
+        )
+    
+    if "user_subscription" not in existing_tables:
+        op.create_index("idx_user_subscription_user_id", "user_subscription", ["user_id"])
+        op.create_index("idx_user_subscription_plan_id", "user_subscription", ["plan_id"])
+        op.create_index("idx_user_subscription_status", "user_subscription", ["status"])
+        op.create_index(
+            "idx_user_subscription_end_date", "user_subscription", ["end_date"]
+        )
 
 
 def downgrade() -> None:

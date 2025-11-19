@@ -36,12 +36,17 @@ class User(Base):
     bio = Column(Text, nullable=True)
     gender = Column(Text, nullable=True)
     date_of_birth = Column(Date, nullable=True)
+    phone = Column(String(20), nullable=True)
 
     info = Column(JSONField, nullable=True)
     settings = Column(JSONField, nullable=True)
 
     api_key = Column(String, nullable=True, unique=True)
     oauth_sub = Column(Text, unique=True)
+
+    # Subscription fields
+    subscription_id = Column(String, nullable=True)
+    subscription_status = Column(String, nullable=True)  # pending, active, expired, cancelled
 
     last_active_at = Column(BigInteger)
 
@@ -68,12 +73,17 @@ class UserModel(BaseModel):
     bio: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[datetime.date] = None
+    phone: Optional[str] = None
 
     info: Optional[dict] = None
     settings: Optional[UserSettings] = None
 
     api_key: Optional[str] = None
     oauth_sub: Optional[str] = None
+
+    # Subscription fields
+    subscription_id: Optional[str] = None
+    subscription_status: Optional[str] = None
 
     last_active_at: int  # timestamp in epoch
     updated_at: int  # timestamp in epoch
@@ -93,6 +103,7 @@ class UpdateProfileForm(BaseModel):
     bio: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[datetime.date] = None
+    phone: Optional[str] = None
 
 
 class UserListResponse(BaseModel):
