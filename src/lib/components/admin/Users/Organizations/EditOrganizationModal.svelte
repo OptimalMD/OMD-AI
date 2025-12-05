@@ -71,6 +71,11 @@
 			return;
 		}
 
+		if (selectedPlanIds.length === 0) {
+			toast.error($i18n.t('Please select at least one subscription plan'));
+			return;
+		}
+
 		loading = true;
 
 		const data = {
@@ -298,31 +303,12 @@
 						</select>
 					</div>
 
-					<!-- Enable Signup -->
-					<div>
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input
-								type="checkbox"
-								class="rounded"
-								bind:checked={signup_enabled}
-							/>
-							<span class="text-sm font-medium">
-								{$i18n.t('Enable organization signup')}
-							</span>
-						</label>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
-							{$i18n.t('Allow users to register using the organization signup link')}
-						</p>
-					</div>
-
 					<!-- Plans -->
 					<div>
 						<label class="block text-sm font-medium mb-2">
-							{$i18n.t('Subscription Plans')}
+							{$i18n.t('Subscription Plans')} <span class="text-red-500">*</span>
 						</label>
-						<div
-							class="w-full rounded-lg px-4 py-2 bg-gray-50 dark:bg-gray-850 max-h-60 overflow-y-auto"
-						>
+						<div class="w-full rounded-lg px-4 py-2 bg-gray-50 dark:bg-gray-850 max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700">
 							{#if plans.length === 0}
 								<p class="text-sm text-gray-500 dark:text-gray-400">
 									{$i18n.t('No plans available')}
@@ -353,6 +339,26 @@
 								{/each}
 							{/if}
 						</div>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							{$i18n.t('Select at least one plan for this organization')}
+						</p>
+					</div>
+
+					<!-- Enable Signup -->
+					<div>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								class="rounded"
+								bind:checked={signup_enabled}
+							/>
+							<span class="text-sm font-medium">
+								{$i18n.t('Enable organization signup')}
+							</span>
+						</label>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+							{$i18n.t('Allow users to register using the organization signup link')}
+						</p>
 					</div>
 
 					<!-- Signup Link Display (when editing and signup is enabled) -->
@@ -393,12 +399,12 @@
 						</button>
 						<button
 							type="submit"
-							class="px-4 py-2 rounded-lg text-sm font-medium bg-black hover:bg-gray-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition"
+							class="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
 							disabled={loading}
 						>
 							{#if loading}
 								<div class="flex items-center gap-2">
-									<div class="animate-spin rounded-full h-4 w-4 border-2 border-white dark:border-black border-t-transparent" />
+									<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
 									{$i18n.t('Saving...')}
 								</div>
 							{:else if edit}
