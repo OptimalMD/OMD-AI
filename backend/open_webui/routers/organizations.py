@@ -308,6 +308,8 @@ async def get_organization_signup_info(org_code: str):
             "id": organization.id,
             "org_name": organization.org_name,
             "org_code": organization.org_code,
+            "dark_logo": organization.dark_logo,
+            "light_logo": organization.light_logo,
             "plans": organization.plans or []
         }
     except HTTPException:
@@ -318,3 +320,38 @@ async def get_organization_signup_info(org_code: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ERROR_MESSAGES.DEFAULT(e),
         )
+
+
+############################
+# GetUserOrganization
+############################
+
+
+@router.get("/user/me", response_model=Optional[dict])
+async def get_user_organization(user=Depends(get_verified_user)):
+    """Get organization info for the current user"""
+    try:
+        from open_webui.models.users import Users
+        
+        # Get user's organization_id
+        user_data = Users.get_user_by_id(user.id)
+        if not user_data or not user_data.organization_id:
+            return None
+        
+        # Get organization
+        organization = Organizations.get_organization_by_id(user_data.organization_id)
+        if not organization:
+            return None
+        
+        # Return organization info
+        return {
+            "id": organization.id,
+            "org_name": organization.org_name,
+            "org_code": organization.org_code,
+            "dark_logo": organization.dark_logo,
+            "light_logo": organization.light_logo,
+            "status": organization.status
+        }
+    except Exception as e:
+        log.exception(f"Error getting user organization: {e}")
+        return None

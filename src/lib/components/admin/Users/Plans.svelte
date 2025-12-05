@@ -16,6 +16,7 @@
 	import Pencil from '$lib/components/icons/Pencil.svelte';
 	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import EditPlanModal from './Plans/EditPlanModal.svelte';
+	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	import {
 		getSubscriptionPlans,
@@ -44,6 +45,8 @@
 	let showAddPlanModal = false;
 	let showEditPlanModal = false;
 	let selectedPlan = null;
+	let showDeleteConfirm = false;
+	let planToDelete = null;
 
 	const setPlans = async () => {
 		try {
@@ -94,12 +97,15 @@
 	};
 
 	const deletePlanHandler = async (planId) => {
-		if (!confirm($i18n.t('Are you sure you want to delete this plan?'))) {
-			return;
-		}
+		planToDelete = planId;
+		showDeleteConfirm = true;
+	};
+
+	const confirmDelete = async () => {
+		if (!planToDelete) return;
 
 		try {
-			const res = await deletePlan(localStorage.token, planId);
+			const res = await deletePlan(localStorage.token, planToDelete);
 			if (res) {
 				toast.success($i18n.t('Plan deleted successfully'));
 				await setPlans();
@@ -107,6 +113,8 @@
 		} catch (error) {
 			toast.error(`${error}`);
 			console.error('Error deleting plan:', error);
+		} finally {
+			planToDelete = null;
 		}
 	};
 
@@ -142,38 +150,44 @@
 		onSubmit={updatePlanHandler}
 	/>
 
-	<div class="mt-0.5 mb-2 gap-1 flex flex-col md:flex-row justify-between">
-		<div class="flex md:self-center text-lg font-medium px-0.5">
-			{$i18n.t('Plans')}
-			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
+	<!-- Delete Confirmation Dialog -->
+	<ConfirmDialog
+		bind:show={showDeleteConfirm}
+		title={$i18n.t('Confirm Deletion')}
+		message={$i18n.t('Are you sure you want to delete this plan? This action cannot be undone.')}
+		confirmLabel={$i18n.t('Delete')}
+		cancelLabel={$i18n.t('Cancel')}
+		onConfirm={confirmDelete}
+	/>
 
-			<span class="text-lg font-medium text-gray-500 dark:text-gray-300">{plans.length}</span>
+	<div class="mt-0.5 mb-6 gap-1 flex flex-col md:flex-row justify-between items-center">
+		<div class="flex md:self-center text-2xl font-bold px-0.5 text-gray-800 dark:text-gray-100">
+			{$i18n.t('Subscription Plans')}
 		</div>
 
-		<div class="flex gap-1">
+		<div class="flex gap-2">
 			<div class=" flex w-full space-x-2">
-				<div class="flex flex-1">
-					<div class=" self-center ml-1 mr-3">
-						<Search />
+				<div class="flex flex-1 relative">
+					<div class="absolute left-0 top-0 bottom-0 flex items-center pl-3 pointer-events-none text-gray-500">
+						<Search className="size-4" />
 					</div>
 					<input
-						class=" w-full text-sm pr-4 py-1 rounded-r-xl outline-hidden bg-transparent"
+						class="w-full text-sm pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500"
 						bind:value={search}
 						placeholder={$i18n.t('Search Plans')}
 					/>
 				</div>
 
 				<div>
-					<Tooltip content={$i18n.t('Create Plan')}>
-						<button
-							class=" p-2 rounded-xl hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-850 transition font-medium text-sm flex items-center space-x-1"
-							on:click={() => {
-								showAddPlanModal = true;
-							}}
-						>
-							<Plus className="size-3.5" />
-						</button>
-					</Tooltip>
+					<button
+						class="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition font-medium text-sm flex items-center space-x-1 shadow-sm"
+						on:click={() => {
+							showAddPlanModal = true;
+						}}
+					>
+						<Plus className="size-3.5" />
+						<span>{$i18n.t('Add Plan')}</span>
+					</button>
 				</div>
 			</div>
 		</div>
@@ -192,7 +206,7 @@
 
 				<div class="mt-3">
 					<button
-						class=" px-4 py-1.5 text-sm rounded-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition font-medium flex items-center space-x-1"
+						class=" px-4 py-1.5 text-sm rounded-full bg-green-500 hover:bg-green-600 text-white transition font-medium flex items-center space-x-1"
 						aria-label={$i18n.t('Create Plan')}
 						on:click={() => {
 							showAddPlanModal = true;
@@ -203,79 +217,86 @@
 				</div>
 			</div>
 		{:else}
-			<div>
-				<div class=" flex items-center gap-3 justify-between text-xs uppercase px-1 font-semibold">
-					<div class="w-full basis-2/5">{$i18n.t('Plan Name')}</div>
-					<div class="w-full basis-1/5 text-center">{$i18n.t('Type')}</div>
-					<div class="w-full basis-1/5 text-center">{$i18n.t('Price')}</div>
-					<div class="w-full basis-1/5 text-center">{$i18n.t('Duration')}</div>
-					<div class="w-16 text-right">{$i18n.t('Actions')}</div>
-				</div>
-
-				<hr class="mt-1.5 border-gray-100 dark:border-gray-850" />
-
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				{#each filteredPlans as plan}
-					<div class="my-2">
-						<div
-							class="flex items-center justify-between rounded-lg w-full transition hover:bg-gray-50 dark:hover:bg-gray-850 p-2"
-						>
-							<div class="w-full basis-2/5 flex items-center gap-2.5">
-								<div class="p-1.5 bg-black/5 dark:bg-white/10 rounded-full">
-									<CreditCard className="size-4" />
-								</div>
-								<div class="flex-1 min-w-0">
-									<div class="text-sm font-medium truncate">{plan.plan_name}</div>
-									<div class="text-xs text-gray-500 dark:text-gray-400 truncate">
-										{#if plan.subtitle}
-											{plan.subtitle}
-										{:else if plan.benefits && plan.benefits.length > 0}
-											{plan.benefits[0]}
-										{/if}
-									</div>
-								</div>
-							</div>
-
-							<div class="w-full basis-1/5 text-center">
-								<span class="px-2 py-1 text-xs font-medium rounded-full capitalize
-									{plan.plan_type === 'free' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' : ''}
-									{plan.plan_type === 'premium' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : ''}
-									{plan.plan_type === 'enterprise' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : ''}
-								">
-									{plan.plan_type}
+					<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col h-full relative hover:shadow-md transition-shadow">
+						<!-- Header -->
+						<div class="text-center mb-6 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+							<h3 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">{plan.plan_name}</h3>
+							
+							<div class="flex justify-center mb-4">
+								<span class="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-5 py-1.5 rounded-full text-lg font-bold">
+									{#if plan.price === 0}
+										{$i18n.t('Free')}
+									{:else}
+										${plan.price} <span class="text-sm font-normal text-blue-500 dark:text-blue-400">per {plan.duration_type || 'month'}</span>
+									{/if}
 								</span>
 							</div>
+							
+							{#if plan.subtitle}
+								<p class="text-gray-500 dark:text-gray-400 text-sm">{plan.subtitle}</p>
+							{/if}
+						</div>
 
-							<div class="w-full basis-1/5 text-center text-sm font-medium">
-								{#if plan.price === 0}
-									{$i18n.t('Free')}
-								{:else}
-									${plan.price}
-								{/if}
+						<!-- Models -->
+						{#if plan.models && plan.models.length > 0}
+							<div class="mb-6 px-4">
+								<p class="text-xs font-bold text-gray-400 uppercase mb-2">{$i18n.t('Available Models')}:</p>
+								<div class="flex flex-wrap gap-2">
+									{#each plan.models as model}
+										<span class="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-2.5 py-1 rounded text-xs font-medium border border-blue-100 dark:border-blue-800">
+											{model}
+										</span>
+									{/each}
+								</div>
 							</div>
+						{/if}
 
-							<div class="w-full basis-1/5 text-center text-sm">
-								{plan.plan_duration} {plan.duration_type}
+						<!-- Features -->
+						<div class="flex-grow mb-6 px-4">
+							{#if plan.benefits && plan.benefits.length > 0}
+								<ul class="space-y-2.5">
+									{#each plan.benefits as benefit}
+										<li class="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+											<span class="text-green-500 mt-0.5 shrink-0">
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+													<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+												</svg>
+											</span>
+											<span class="leading-tight">{benefit}</span>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+
+						<!-- Additional Info -->
+						{#if plan.additional_info}
+							<div class="mb-6 pt-4 border-t border-gray-100 dark:border-gray-800 px-4">
+								<p class="text-[10px] italic text-gray-500 dark:text-gray-400 leading-relaxed">
+									{plan.additional_info}
+								</p>
 							</div>
+						{/if}
 
-							<div class="w-16 flex items-center justify-end gap-1">
-								<Tooltip content={$i18n.t('Edit')}>
-									<button
-										class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-										on:click={() => editPlanHandler(plan)}
-									>
-										<Pencil className="size-3.5" />
-									</button>
-								</Tooltip>
+						<!-- Footer Actions -->
+						<div class="flex justify-end gap-3 p-4 mt-auto">
+							<button
+								class="flex items-center gap-1.5 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40 rounded-lg transition text-sm font-medium"
+								on:click={() => editPlanHandler(plan)}
+							>
+								<Pencil className="size-3.5" />
+								{$i18n.t('Edit')}
+							</button>
 
-								<Tooltip content={$i18n.t('Delete')}>
-									<button
-										class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition"
-										on:click={() => deletePlanHandler(plan.id)}
-									>
-										<GarbageBin className="size-3.5" />
-									</button>
-								</Tooltip>
-							</div>
+							<button
+								class="flex items-center gap-1.5 px-3 py-1.5 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40 rounded-lg transition text-sm font-medium"
+								on:click={() => deletePlanHandler(plan.id)}
+							>
+								<GarbageBin className="size-3.5" />
+								{$i18n.t('Delete')}
+							</button>
 						</div>
 					</div>
 				{/each}

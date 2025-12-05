@@ -21,6 +21,44 @@
 	export let status = 'active';
 	export let signup_enabled = true;
 	export let selectedPlanIds = [];
+	export let dark_logo = '';
+	export let light_logo = '';
+
+	// File input handling
+	let darkLogoInput;
+	let lightLogoInput;
+
+	const handleLogoUpload = async (file: File, isDark: boolean) => {
+		return new Promise((resolve) => {
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				const base64String = reader.result as string;
+				if (isDark) {
+					dark_logo = base64String;
+				} else {
+					light_logo = base64String;
+				}
+				resolve(base64String);
+			};
+			reader.readAsDataURL(file);
+		});
+	};
+
+	const handleDarkLogoChange = (e: Event) => {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (file) {
+			handleLogoUpload(file, true);
+		}
+	};
+
+	const handleLightLogoChange = (e: Event) => {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (file) {
+			handleLogoUpload(file, false);
+		}
+	};
 
 	const submitHandler = async () => {
 		if (!org_name.trim()) {
@@ -40,7 +78,9 @@
 			org_code: org_code.trim(),
 			status,
 			signup_enabled,
-			plans: selectedPlanIds
+			plans: selectedPlanIds,
+			dark_logo: dark_logo || null,
+			light_logo: light_logo || null
 		};
 
 		await onSubmit(data);
@@ -56,12 +96,16 @@
 			status = organization.status || 'active';
 			signup_enabled = organization.signup_enabled !== undefined ? organization.signup_enabled : true;
 			selectedPlanIds = organization.plans || [];
+			dark_logo = organization.dark_logo || '';
+			light_logo = organization.light_logo || '';
 		} else {
 			org_name = '';
 			org_code = '';
 			status = 'active';
 			signup_enabled = true;
 			selectedPlanIds = [];
+			dark_logo = '';
+			light_logo = '';
 		}
 	};
 
@@ -103,6 +147,105 @@
 				}}
 			>
 				<div class="flex flex-col gap-4">
+					<!-- Organization Logos -->
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<!-- Dark Logo -->
+						<div>
+							<label class="block text-sm font-medium mb-2">
+								{$i18n.t('Dark Logo')}
+							</label>
+							<div class="flex flex-col gap-2">
+								{#if dark_logo}
+									<div class="relative w-full h-32 bg-gray-900 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center p-4">
+										<img
+											src={dark_logo}
+											alt="Dark logo preview"
+											class="max-w-full max-h-full object-contain"
+										/>
+										<button
+											type="button"
+											class="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition"
+											on:click={() => {
+												dark_logo = '';
+												if (darkLogoInput) darkLogoInput.value = '';
+											}}
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</div>
+								{:else}
+									<div class="w-full h-32 bg-gray-900 rounded-lg border-2 border-dashed border-gray-600 flex items-center justify-center">
+										<span class="text-gray-400 text-sm">{$i18n.t('No logo uploaded')}</span>
+									</div>
+								{/if}
+								<input
+									bind:this={darkLogoInput}
+									type="file"
+									accept="image/*"
+									class="hidden"
+									on:change={handleDarkLogoChange}
+								/>
+								<button
+									type="button"
+									class="px-3 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
+									on:click={() => darkLogoInput?.click()}
+								>
+									{$i18n.t('Click to upload dark logo')}
+								</button>
+							</div>
+						</div>
+
+						<!-- Light Logo -->
+						<div>
+							<label class="block text-sm font-medium mb-2">
+								{$i18n.t('Light Logo')}
+							</label>
+							<div class="flex flex-col gap-2">
+								{#if light_logo}
+									<div class="relative w-full h-32 bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center p-4">
+										<img
+											src={light_logo}
+											alt="Light logo preview"
+											class="max-w-full max-h-full object-contain"
+										/>
+										<button
+											type="button"
+											class="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition"
+											on:click={() => {
+												light_logo = '';
+												if (lightLogoInput) lightLogoInput.value = '';
+											}}
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</div>
+								{:else}
+									<div class="w-full h-32 bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+										<span class="text-gray-500 text-sm">{$i18n.t('No logo uploaded')}</span>
+									</div>
+								{/if}
+								<input
+									bind:this={lightLogoInput}
+									type="file"
+									accept="image/*"
+									class="hidden"
+									on:change={handleLightLogoChange}
+								/>
+								<button
+									type="button"
+									class="px-3 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
+									on:click={() => lightLogoInput?.click()}
+								>
+									{$i18n.t('Click to upload light logo')}
+								</button>
+							</div>
+						</div>
+					</div>
+
 					<!-- Organization Name -->
 					<div>
 						<label class="block text-sm font-medium mb-2" for="org-name">

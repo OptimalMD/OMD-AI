@@ -345,7 +345,7 @@ else:
         DATABASE_POOL_RECYCLE = 3600
 
 DATABASE_ENABLE_SQLITE_WAL = (
-    os.environ.get("DATABASE_ENABLE_SQLITE_WAL", "False").lower() == "true"
+    os.environ.get("DATABASE_ENABLE_SQLITE_WAL", "True").lower() == "true"
 )
 
 DATABASE_USER_ACTIVE_STATUS_UPDATE_INTERVAL = os.environ.get(

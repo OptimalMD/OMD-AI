@@ -18,6 +18,7 @@
 	let loading = false;
 	let models: any[] = [];
 	let selectedModels: string[] = [];
+	let detailsElement: HTMLDetailsElement;
 
 	// Form fields
 	let plan_name = '';
@@ -106,6 +107,7 @@
 		await onSubmit(planData);
 
 		loading = false;
+		show = false;
 	};
 
 	const init = async () => {
@@ -152,8 +154,19 @@
 		}
 	};
 
+	const handleClickOutside = (event: MouseEvent) => {
+		if (detailsElement && !detailsElement.contains(event.target as Node) && detailsElement.open) {
+			detailsElement.open = false;
+		}
+	};
+
 	$: if (show) {
 		init();
+		setTimeout(() => {
+			document.addEventListener('click', handleClickOutside);
+		}, 0);
+	} else {
+		document.removeEventListener('click', handleClickOutside);
 	}
 </script>
 
@@ -184,19 +197,19 @@
 		</div>
 
 		<form
-			class="flex flex-col max-h-[70vh] overflow-y-auto space-y-5 scrollbar-hidden mt-5"
+			class="flex flex-col max-h-[70vh] px-2 overflow-y-auto space-y-4 scrollbar-hidden mt-5"
 			on:submit|preventDefault={submitHandler}
 		>
 			<!-- Plan Name and Subtitle -->
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="plan-name">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-name">
 						{$i18n.t('Plan Name')}
 					</label>
 					<input
 						id="plan-name"
 						type="text"
-						class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+						class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
 						placeholder={$i18n.t('e.g., Premium Package')}
 						bind:value={plan_name}
 						required
@@ -204,13 +217,13 @@
 				</div>
 
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="plan-subtitle">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-subtitle">
 						{$i18n.t('Subtitle')}
 					</label>
 					<input
 						id="plan-subtitle"
 						type="text"
-						class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+						class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
 						placeholder={$i18n.t('Short description')}
 						bind:value={subtitle}
 					/>
@@ -220,7 +233,7 @@
 			<!-- Price and Duration -->
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="plan-price">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-price">
 						{$i18n.t('Price ($)')}
 					</label>
 					<input
@@ -228,21 +241,21 @@
 						type="number"
 						step="0.01"
 						min="0"
-						class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+						class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
 						bind:value={price}
 						required
 					/>
 				</div>
 
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="plan-duration">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-duration">
 						{$i18n.t('Duration')}
 					</label>
 					<input
 						id="plan-duration"
 						type="number"
 						min="1"
-						class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+						class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
 						placeholder="1"
 						bind:value={plan_duration}
 						required
@@ -253,12 +266,12 @@
 			<!-- Duration Type and Select Models -->
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="duration-type">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="duration-type">
 						{$i18n.t('Duration Type')}
 					</label>
 					<select
 						id="duration-type"
-						class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent appearance-none"
+						class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent appearance-none"
 						style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27 fill=%27gray%27%3e%3cpath fill-rule=%27evenodd%27 d=%27M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z%27 clip-rule=%27evenodd%27/%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.5em 1.5em; padding-right: 2.5rem;"
 						bind:value={duration_type}
 					>
@@ -270,12 +283,12 @@
 				</div>
 
 				<div>
-					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="plan-models">
+					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-models">
 						{$i18n.t('Select Models')}
 					</label>
 					<div class="relative">
-						<details class="relative">
-							<summary class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent cursor-pointer list-none flex items-center justify-between">
+						<details class="relative" bind:this={detailsElement}>
+							<summary class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent cursor-pointer list-none flex items-center justify-between">
 								<span class={selectedModels.length === 0 ? 'text-gray-400 dark:text-gray-500' : ''}>
 									{#if selectedModels.length === 0}
 										{$i18n.t('Select models...')}
@@ -289,21 +302,20 @@
 									<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
 								</svg>
 							</summary>
-							<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto" role="listbox" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+							<div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto overflow-x-hidden" role="listbox" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
 								{#if models.length > 0}
-									<div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2">
-										<button
-											type="button"
-											class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
-											on:click={selectAllModels}
-										>
-											<input
-												type="checkbox"
-												checked={selectedModels.length === models.length}
-												class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-												on:click|stopPropagation
-											/>
-											<span class="font-medium">
+									<div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2 z-10">
+									<button
+										type="button"
+										class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2 min-w-0"
+										on:click={selectAllModels}
+									>
+										<input
+											type="checkbox"
+											checked={selectedModels.length === models.length}
+											class="w-5 h-5 bg-gray-100 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 checked:bg-blue-600 checked:border-blue-600 dark:checked:bg-blue-500 dark:checked:border-blue-500 flex-shrink-0 pointer-events-none"
+										/>
+											<span class="font-medium flex-1 min-w-0">
 												{selectedModels.length === models.length ? $i18n.t('Deselect All') : $i18n.t('Select All')}
 											</span>
 										</button>
@@ -311,16 +323,15 @@
 									{#each models as model}
 										<button
 											type="button"
-											class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+											class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 {selectedModels.includes(model.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}"
 											on:click={() => toggleModel(model.id)}
 										>
 											<input
 												type="checkbox"
 												checked={selectedModels.includes(model.id)}
-												class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-												on:click|stopPropagation
+												class="w-5 h-5 bg-gray-100 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 checked:bg-blue-600 checked:border-blue-600 dark:checked:bg-blue-500 dark:checked:border-blue-500 pointer-events-none"
 											/>
-											<span class="flex-1 truncate">{model.name || model.id}</span>
+											<span class="flex-1 truncate {selectedModels.includes(model.id) ? 'font-medium text-blue-700 dark:text-blue-300' : ''}">{model.name || model.id}</span>
 										</button>
 									{/each}
 								{:else}
@@ -336,7 +347,7 @@
 
 			<!-- Benefits -->
 			<div>
-				<div class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+				<div class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5">
 					{$i18n.t('Benefits:')}
 				</div>
 				
@@ -345,37 +356,35 @@
 						<div class="flex gap-2 items-center">
 							<input
 								type="text"
-								class="flex-1 px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+								class="flex-1 px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
 								placeholder={$i18n.t('Benefit feature')}
 								bind:value={benefits[index]}
 							/>
-							{#if benefits.length > 1}
-								<button
-									type="button"
-									class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 rounded-lg transition"
-									on:click={() => removeBenefit(index)}
+							<button
+								type="button"
+								class="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 rounded-lg transition"
+								on:click={() => removeBenefit(index)}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 20 20"
+									fill="currentColor"
+									class="w-5 h-5"
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-										class="w-5 h-5"
-									>
-										<path
-											fill-rule="evenodd"
-											d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-								</button>
-							{/if}
+									<path
+										fill-rule="evenodd"
+										d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							</button>
 						</div>
 					{/each}
 				</div>
 
 				<button
 					type="button"
-					class="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition flex items-center gap-1"
+					class="mt-2.5 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-normal transition flex items-center gap-1"
 					on:click={addBenefit}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -387,13 +396,13 @@
 
 			<!-- Additional Information -->
 			<div>
-				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="additional-info">
+				<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="additional-info">
 					{$i18n.t('Additional Information')}
 				</label>
 				<textarea
 					id="additional-info"
 					rows="3"
-					class="w-full px-3 py-2.5 text-sm bg-transparent border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-transparent resize-none placeholder-gray-400 dark:placeholder-gray-500"
+					class="w-full px-3.5 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none placeholder-gray-400 dark:placeholder-gray-500"
 					placeholder={$i18n.t('Any extra details about the plan')}
 					bind:value={additional_info}
 				/>
@@ -405,20 +414,20 @@
 					<input
 						id="plan-active"
 						type="checkbox"
-						class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+						class="w-5 h-5 bg-gray-100 border-2 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 checked:bg-blue-600 checked:border-blue-600 dark:checked:bg-blue-500 dark:checked:border-blue-500"
 						bind:checked={is_active}
 					/>
-					<label for="plan-active" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+					<label for="plan-active" class="text-sm font-normal text-gray-700 dark:text-gray-300">
 						{$i18n.t('Plan is active')}
 					</label>
 				</div>
 			{/if}
 		</form>
 
-		<div class="flex justify-end gap-3 pt-5 mt-5 border-t border-gray-200 dark:border-gray-700">
+		<div class="flex justify-end gap-2.5 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
 			<button
 				type="button"
-				class="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+				class="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
 				on:click={() => {
 					show = false;
 				}}
@@ -428,13 +437,16 @@
 
 			<button
 				type="button"
-				class="px-5 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition flex items-center gap-2"
+				class="px-5 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition flex items-center gap-2"
 				on:click={submitHandler}
 				disabled={loading}
 			>
 				{#if loading}
 					<Spinner className="size-4" />
 				{/if}
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+					<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+				</svg>
 				{edit ? $i18n.t('Update Plan') : $i18n.t('Save Plan')}
 			</button>
 		</div>

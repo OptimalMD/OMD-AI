@@ -53,6 +53,7 @@ class UserResponse(BaseModel):
     name: str
     role: str
     profile_image_url: str
+    user_type: Optional[str] = "individual"
 
 
 class SigninResponse(Token, UserResponse):
@@ -87,6 +88,12 @@ class SignupForm(BaseModel):
     payment_id: Optional[str] = None  # Payment gateway transaction ID
     dob: Optional[str] = None  # Date of birth (YYYY-MM-DD format)
     phone: Optional[str] = None  # Phone number
+    user_type: Optional[str] = "individual"  # Registration type: org or individual
+
+
+class GuestSigninForm(BaseModel):
+    name: str
+    email: str
 
 
 class AddUserForm(SignupForm):
@@ -104,6 +111,8 @@ class AuthsTable:
         oauth_sub: Optional[str] = None,
         dob: Optional[str] = None,
         phone: Optional[str] = None,
+        user_type: Optional[str] = "individual",
+        organization_id: Optional[str] = None,
     ) -> Optional[UserModel]:
         import time
         from datetime import datetime
@@ -130,6 +139,7 @@ class AuthsTable:
                     log.warning(f"Invalid date format for DOB: {dob}")
 
             # Create user record in the same transaction
+
             user_data = {
                 "id": id,
                 "name": name,
@@ -140,13 +150,15 @@ class AuthsTable:
                 "created_at": int(time.time()),
                 "updated_at": int(time.time()),
                 "oauth_sub": oauth_sub,
+                "user_type": user_type,
             }
-            
             if date_of_birth:
                 user_data["date_of_birth"] = date_of_birth
             if phone:
                 user_data["phone"] = phone
-            
+            if organization_id:
+                user_data["organization_id"] = organization_id
+
             user_model = UserModel(**user_data)
             user_result = User(**user_model.model_dump())
             db.add(user_result)

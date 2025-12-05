@@ -351,6 +351,7 @@ def check_model_access(user, model):
 
 def get_filtered_models(models, user):
     # Filter out models that the user does not have access to
+    # Guest users will be filtered through group-based access control
     if (
         user.role == "user"
         or (user.role == "admin" and not BYPASS_ADMIN_ACCESS_CONTROL)

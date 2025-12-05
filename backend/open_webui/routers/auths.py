@@ -16,6 +16,7 @@ from open_webui.models.auths import (
     SigninForm,
     SigninResponse,
     SignupForm,
+    GuestSigninForm,
     UpdatePasswordForm,
     UserResponse,
 )
@@ -164,6 +165,7 @@ async def get_session_user(
         "name": user.name,
         "role": user.role,
         "profile_image_url": user.profile_image_url,
+        "user_type": user.user_type if hasattr(user, 'user_type') else "individual",
         "bio": user.bio,
         "gender": user.gender,
         "date_of_birth": user.date_of_birth,
@@ -497,6 +499,130 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
 ############################
 
 
+@router.post("/guest", response_model=SessionUserResponse)
+async def guest_signin(request: Request, response: Response, form_data: GuestSigninForm):
+    """
+    Create a temporary guest session that expires when browser closes.
+    No password required, just name and email.
+    """
+    
+    if not validate_email_format(form_data.email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    try:
+        # Check if this email already has a guest account
+        existing_user = Users.get_user_by_email(form_data.email.lower())
+        
+        if existing_user:
+            # Check if it's a guest account
+            if existing_user.user_type == "guest":
+                # Reuse existing guest account
+                user = existing_user
+                log.info(f"Reusing existing guest account for {form_data.email.lower()}")
+            else:
+                # Email already registered as regular user
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, 
+                    detail="This email is already registered. Please sign in with your password or use a different email for guest access."
+                )
+        else:
+            # Create a new guest account
+            # Generate a unique guest ID with timestamp
+            guest_id = f"guest_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+            
+            # Create a temporary password (won't be used by guest)
+            temp_password = str(uuid.uuid4())
+            hashed = get_password_hash(temp_password)
+            
+            # Create a temporary guest user with 'user' role
+            user = Auths.insert_new_auth(
+                email=form_data.email.lower(),
+                password=hashed,
+                name=form_data.name,
+                profile_image_url="/user.png",
+                role="user",  # User role - permissions managed via Guests group
+                user_type="guest",
+            )
+            
+            # Add user to Guests group if it exists
+            if user:
+                from open_webui.models.groups import Groups
+                try:
+                    all_groups = Groups.get_groups()
+                    for group in all_groups:
+                        if group.name == "Guests":
+                            Groups.add_users_to_group(group.id, [user.id])
+                            log.info(f"Added guest user {user.id} to Guests group")
+                            break
+                except Exception as e:
+                    log.error(f"Error adding guest to group: {str(e)}")
+        
+        if user:
+            # Create a short-lived token (expires in 24 hours)
+            # Session storage will handle browser close cleanup
+            expires_delta = parse_duration("24h")
+            expires_at = None
+            if expires_delta:
+                expires_at = int(time.time()) + int(expires_delta.total_seconds())
+            
+            token = create_token(
+                data={"id": user.id, "guest": True},
+                expires_delta=expires_delta,
+            )
+            
+            datetime_expires_at = (
+                datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                if expires_at
+                else None
+            )
+            
+            # Set cookie with session-only expiry (no expires parameter)
+            # This ensures cookie is deleted when browser closes
+            response.set_cookie(
+                key="token",
+                value=token,
+                httponly=True,
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
+            
+            # Mark as guest session
+            response.set_cookie(
+                key="guest_session",
+                value="true",
+                httponly=True,
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
+            
+            user_permissions = get_permissions(
+                user.id, request.app.state.config.USER_PERMISSIONS
+            )
+            
+            return {
+                "token": token,
+                "token_type": "Bearer",
+                "expires_at": expires_at,
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "role": user.role,
+                "profile_image_url": user.profile_image_url,
+                "user_type": "guest",
+                "permissions": user_permissions,
+            }
+        else:
+            raise HTTPException(500, detail="Failed to create guest session")
+            
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"Guest signin error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during guest signin.")
+
+
 @router.post("/signin", response_model=SessionUserResponse)
 async def signin(request: Request, response: Response, form_data: SigninForm):
     if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
@@ -587,6 +713,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             "name": user.name,
             "role": user.role,
             "profile_image_url": user.profile_image_url,
+            "user_type": user.user_type if hasattr(user, 'user_type') else "individual",
             "permissions": user_permissions,
         }
     else:
@@ -622,8 +749,18 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
         )
 
-    if Users.get_user_by_email(form_data.email.lower()):
-        raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
+    existing_user = Users.get_user_by_email(form_data.email.lower())
+    
+    # Check if email exists
+    if existing_user:
+        # If it's a guest account, delete it first to allow normal signup
+        if existing_user.user_type == "guest":
+            log.info(f"Deleting guest account to allow signup: {form_data.email.lower()}")
+            # Delete the guest account - user will go through normal signup process
+            Auths.delete_auth_by_id(existing_user.id)
+        else:
+            # Regular account already exists
+            raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
         role = "admin" if not has_users else request.app.state.config.DEFAULT_USER_ROLE
@@ -662,6 +799,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             role,
             dob=form_data.dob,
             phone=form_data.phone,
+            user_type=form_data.user_type if hasattr(form_data, "user_type") else "individual",
         )
 
         if user:
@@ -1280,6 +1418,8 @@ async def organization_signup(
             role,
             dob=form_data.dob,
             phone=form_data.phone,
+            user_type="org",
+            organization_id=organization.id,  # Set the user's organization
         )
         
         if user:

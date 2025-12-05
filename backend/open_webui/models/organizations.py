@@ -26,6 +26,9 @@ class Organization(Base):
     org_name = Column(Text, nullable=False)
     org_code = Column(Text, unique=True, nullable=False)
     
+    dark_logo = Column(Text, nullable=True)  # URL or base64 data for dark mode logo
+    light_logo = Column(Text, nullable=True)  # URL or base64 data for light mode logo
+    
     plans = Column(JSONField, nullable=True)  # Array of subscription plan IDs
     users = Column(JSONField, nullable=True)  # Array of user IDs
     
@@ -42,6 +45,9 @@ class OrganizationModel(BaseModel):
     id: str
     org_name: str
     org_code: str
+    
+    dark_logo: Optional[str] = None
+    light_logo: Optional[str] = None
     
     plans: Optional[List[str]] = []
     users: Optional[List[str]] = []
@@ -62,6 +68,8 @@ class OrganizationResponse(BaseModel):
     id: str
     org_name: str
     org_code: str
+    dark_logo: Optional[str] = None
+    light_logo: Optional[str] = None
     plans: Optional[List[str]] = []
     users: Optional[List[str]] = []
     status: str = "active"
@@ -73,6 +81,8 @@ class OrganizationResponse(BaseModel):
 class OrganizationForm(BaseModel):
     org_name: str
     org_code: str
+    dark_logo: Optional[str] = None
+    light_logo: Optional[str] = None
     plans: Optional[List[str]] = []
     users: Optional[List[str]] = []
     status: Optional[str] = "active"
@@ -82,6 +92,8 @@ class OrganizationForm(BaseModel):
 class OrganizationUpdateForm(BaseModel):
     org_name: Optional[str] = None
     org_code: Optional[str] = None
+    dark_logo: Optional[str] = None
+    light_logo: Optional[str] = None
     plans: Optional[List[str]] = None
     users: Optional[List[str]] = None
     status: Optional[str] = None

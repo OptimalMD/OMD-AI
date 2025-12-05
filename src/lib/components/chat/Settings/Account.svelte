@@ -17,6 +17,7 @@
 	import { getUserById } from '$lib/apis/users';
 	import User from '$lib/components/icons/User.svelte';
 	import UserProfileImage from './Account/UserProfileImage.svelte';
+	import { getUserOrganization } from '$lib/apis/organizations';
 
 	const i18n = getContext('i18n');
 
@@ -41,6 +42,9 @@
 	let APIKey = '';
 	let APIKeyCopied = false;
 	let profileImageInputElement: HTMLInputElement;
+
+	// Organization data
+	let userOrganization = null;
 
 	const submitHandler = async () => {
 		if (name !== $user?.name) {
@@ -113,6 +117,13 @@
 			console.log(error);
 			return '';
 		});
+
+		// Load user's organization if they have one
+		try {
+			userOrganization = await getUserOrganization(localStorage.token);
+		} catch (error) {
+			console.log('No organization found for user:', error);
+		}
 
 		loaded = true;
 	});
@@ -215,6 +226,40 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Organization Info Section -->
+		{#if userOrganization}
+			<hr class="border-gray-50 dark:border-gray-850 my-4" />
+			<div class="space-y-2">
+				<div class="text-sm font-medium">{$i18n.t('Organization')}</div>
+				<div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-850 rounded-lg">
+					{#if userOrganization.dark_logo || userOrganization.light_logo}
+						<img
+							src={userOrganization.light_logo || userOrganization.dark_logo}
+							alt="{userOrganization.org_name} logo"
+							class="h-10 w-10 object-contain dark:hidden"
+						/>
+						<img
+							src={userOrganization.dark_logo || userOrganization.light_logo}
+							alt="{userOrganization.org_name} logo"
+							class="h-10 w-10 object-contain hidden dark:block"
+						/>
+					{:else}
+						<div class="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+							<span class="text-sm font-semibold text-gray-600 dark:text-gray-300">
+								{userOrganization.org_name.substring(0, 2).toUpperCase()}
+							</span>
+						</div>
+					{/if}
+					<div class="flex-1">
+						<div class="font-medium text-sm">{userOrganization.org_name}</div>
+						<div class="text-xs text-gray-500 dark:text-gray-400">
+							{$i18n.t('Organization Code')}: {userOrganization.org_code}
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		{#if $config?.features?.enable_user_webhooks}
 			<div class="mt-2">

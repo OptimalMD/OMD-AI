@@ -113,7 +113,14 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite+sqlcipher://"):
 
 elif "sqlite" in SQLALCHEMY_DATABASE_URL:
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        SQLALCHEMY_DATABASE_URL, 
+        connect_args={
+            "check_same_thread": False,
+            "timeout": 30.0  # Increased timeout to 30 seconds
+        },
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20
     )
 
     def on_connect(dbapi_connection, connection_record):
@@ -122,6 +129,8 @@ elif "sqlite" in SQLALCHEMY_DATABASE_URL:
             cursor.execute("PRAGMA journal_mode=WAL")
         else:
             cursor.execute("PRAGMA journal_mode=DELETE")
+        # Set busy timeout to 30 seconds
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 
     event.listen(engine, "connect", on_connect)

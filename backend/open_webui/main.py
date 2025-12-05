@@ -600,6 +600,18 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(periodic_usage_pool_cleanup())
 
+    # Start periodic guest user cleanup (runs every hour)
+    async def periodic_guest_cleanup():
+        from open_webui.utils.guest_cleanup import cleanup_expired_guest_users
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Run every hour
+                cleanup_expired_guest_users()
+            except Exception as e:
+                log.error(f"Error in periodic guest cleanup: {str(e)}")
+    
+    asyncio.create_task(periodic_guest_cleanup())
+
     if app.state.config.ENABLE_BASE_MODELS_CACHE:
         await get_all_models(
             Request(

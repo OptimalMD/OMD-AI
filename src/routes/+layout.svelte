@@ -524,6 +524,40 @@
 			}
 		});
 
+		// Guest mode session cleanup on page load
+		// Check if we're in guest mode and if sessionStorage was cleared (browser closed)
+		if (localStorage.getItem('token') && !sessionStorage.getItem('guest_mode')) {
+			// If we have a token but no sessionStorage guest_mode flag, check if it's a guest account
+			const token = localStorage.getItem('token');
+			try {
+				// Decode token to check if it's a guest session
+				const payload = JSON.parse(atob(token.split('.')[1]));
+				if (payload.guest === true) {
+					// Guest session expired, clear everything
+					localStorage.removeItem('token');
+					// If we're not on auth or guest page, redirect
+					if (!window.location.pathname.startsWith('/auth') && !window.location.pathname.startsWith('/guest')) {
+						window.location.href = '/guest';
+					}
+				}
+			} catch (e) {
+				// Invalid token, ignore
+			}
+		}
+
+		// Restore guest_mode flag if we're still in an active guest session
+		if (localStorage.getItem('token')) {
+			try {
+				const token = localStorage.getItem('token');
+				const payload = JSON.parse(atob(token.split('.')[1]));
+				if (payload.guest === true) {
+					sessionStorage.setItem('guest_mode', 'true');
+				}
+			} catch (e) {
+				// Invalid token, ignore
+			}
+		}
+
 		if (typeof window !== 'undefined' && window.applyTheme) {
 			window.applyTheme();
 		}
@@ -649,12 +683,16 @@
 					} else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');
-						await goto(`/auth?redirect=${encodedUrl}`);
+						
+						// Check if user wants guest access
+						if (!$page.url.pathname.startsWith('/guest')) {
+							await goto(`/auth?redirect=${encodedUrl}`);
+						}
 					}
 				} else {
-					// Don't redirect if we're already on the auth page
+					// Don't redirect if we're already on the auth or guest page
 					// Needed because we pass in tokens from OAuth logins via URL fragments
-					if ($page.url.pathname !== '/auth') {
+					if ($page.url.pathname !== '/auth' && $page.url.pathname !== '/guest') {
 						await goto(`/auth?redirect=${encodedUrl}`);
 					}
 				}
@@ -700,6 +738,18 @@
 			window.removeEventListener('resize', onResize);
 		};
 	});
+
+	// Handle beforeunload for guest sessions
+	if (typeof window !== 'undefined') {
+		window.addEventListener('beforeunload', () => {
+			// Check if this is a guest session
+			if (sessionStorage.getItem('guest_mode') === 'true') {
+				// Clear the token so it won't be available on next load
+				// The sessionStorage will automatically clear on browser close
+				// This is just a safety measure
+			}
+		});
+	}
 </script>
 
 <svelte:head>

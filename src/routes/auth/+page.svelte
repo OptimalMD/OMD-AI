@@ -603,12 +603,29 @@
 								<div class="mb-8 w-full">
 									<!-- Logo for Signup -->
 									<div class="flex justify-center mb-6">
-										<img
-											crossorigin="anonymous"
-											src="{WEBUI_BASE_URL}/static/favicon.png"
-											class="h-12 w-12 sm:h-16 sm:w-16 rounded-full"
-											alt="OptimalMD Logo"
-										/>
+										{#if organization}
+											<!-- Organization Logo -->
+											<img
+												crossorigin="anonymous"
+												src="{organization.dark_logo || organization.light_logo || `${WEBUI_BASE_URL}/static/favicon.png`}"
+												class="h-12 w-12 sm:h-16 sm:w-16 rounded-full object-contain dark:hidden"
+												alt="{organization.org_name} Logo"
+											/>
+											<img
+												crossorigin="anonymous"
+												src="{organization.light_logo || organization.dark_logo || `${WEBUI_BASE_URL}/static/favicon.png`}"
+												class="h-12 w-12 sm:h-16 sm:w-16 rounded-full object-contain hidden dark:block"
+												alt="{organization.org_name} Logo"
+											/>
+										{:else}
+											<!-- Default Logo -->
+											<img
+												crossorigin="anonymous"
+												src="{WEBUI_BASE_URL}/static/favicon.png"
+												class="h-12 w-12 sm:h-16 sm:w-16 rounded-full"
+												alt="OptimalMD Logo"
+											/>
+										{/if}
 									</div>
 
 									<!-- Title -->
@@ -1430,6 +1447,37 @@
 											<span>{$i18n.t('Continue with {{provider}}', { provider: 'Feishu' })}</span>
 										</button>
 									{/if}
+								</div>
+							{/if}
+
+							<!-- Guest Mode Link -->
+							{#if mode === 'signin' && !($config?.onboarding ?? false)}
+								<div class="mt-6">
+									<div class="relative">
+										<div class="absolute inset-0 flex items-center">
+											<div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+										</div>
+										<div class="relative flex justify-center text-sm">
+											<span class="px-2 bg-white dark:bg-gray-950 text-gray-500 dark:text-gray-400">
+												or try without signing up
+											</span>
+										</div>
+									</div>
+
+									<div class="mt-6 text-center">
+										<a
+											href="/guest"
+											class="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all"
+										>
+											<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+											</svg>
+											Continue as Guest
+										</a>
+										<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+											No signup required • Session expires on browser close
+										</p>
+									</div>
 								</div>
 							{/if}
 

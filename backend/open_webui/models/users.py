@@ -48,10 +48,15 @@ class User(Base):
     subscription_id = Column(String, nullable=True)
     subscription_status = Column(String, nullable=True)  # pending, active, expired, cancelled
 
+    # Organization field
+    organization_id = Column(String, nullable=True)
+
     last_active_at = Column(BigInteger)
 
     updated_at = Column(BigInteger)
     created_at = Column(BigInteger)
+
+    user_type = Column(String(20), nullable=True)
 
 
 class UserSettings(BaseModel):
@@ -85,9 +90,14 @@ class UserModel(BaseModel):
     subscription_id: Optional[str] = None
     subscription_status: Optional[str] = None
 
+    # Organization field
+    organization_id: Optional[str] = None
+
     last_active_at: int  # timestamp in epoch
     updated_at: int  # timestamp in epoch
     created_at: int  # timestamp in epoch
+
+    user_type: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
