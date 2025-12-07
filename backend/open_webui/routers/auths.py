@@ -5,6 +5,7 @@ import datetime
 import logging
 import secrets
 import string
+import hashlib
 from aiohttp import ClientSession
 
 from open_webui.models.auths import (
@@ -46,7 +47,7 @@ from open_webui.env import (
     SRC_LOG_LEVELS,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse, Response, JSONResponse
+from fastapi.responses import RedirectResponse, Response, JSONResponse, HTMLResponse
 from open_webui.config import (
     OPENID_PROVIDER_URL, 
     ENABLE_OAUTH_SIGNUP, 
@@ -94,6 +95,16 @@ def generate_random_password(length: int = 12) -> str:
     alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
     password = ''.join(secrets.choice(alphabet) for _ in range(length))
     return password
+
+
+def generate_secret_code(email: str, omd_id: str) -> str:
+    """Generate a deterministic secret code based on email and omdID"""
+    # Create a hash from email and omd_id
+    combined = f"{email.lower()}:{omd_id}"
+    hash_obj = hashlib.sha256(combined.encode())
+    # Return first 16 characters of the hex digest
+    return hash_obj.hexdigest()[:16].upper()
+
 
 ############################
 # GetSessionUser
@@ -497,6 +508,432 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
 ############################
 # SignIn
 ############################
+
+
+@router.get("/omd/signup")
+async def omd_signup(
+    request: Request,
+    email: str,
+    omd_id: str,
+    name: Optional[str] = None
+):
+    """
+    OMD_User signup endpoint using query parameters.
+    Generates and returns a secret code for future authentication.
+    
+    Parameters:
+    - email: User's email address
+    - omd_id: User's OMD ID
+    - name: Optional user name (defaults to email if not provided)
+    """
+    if not validate_email_format(email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    # Check if omd_id already exists
+    existing_user_by_omd = Users.get_user_by_omd_id(omd_id)
+    if existing_user_by_omd:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="This OMD ID is already registered. Each OMD ID can only be used once."
+        )
+    
+    # Check if user already exists by email
+    existing_user = Users.get_user_by_email(email.lower())
+    if existing_user:
+        # Check if it's already an OMD_User
+        if existing_user.user_type == "omd":
+            # User exists, return their existing secret code
+            if existing_user.secret_code:
+                return {
+                    "success": True,
+                    "message": "OMD_User already exists",
+                    "email": existing_user.email,
+                    "secret_code": existing_user.secret_code,
+                    "user_id": existing_user.id
+                }
+            else:
+                # User exists but no secret code, generate one
+                secret_code = generate_secret_code(email.lower(), omd_id)
+                updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+                if updated_user:
+                    return {
+                        "success": True,
+                        "message": "Secret code generated for existing OMD_User",
+                        "email": updated_user.email,
+                        "secret_code": secret_code,
+                        "user_id": updated_user.id
+                    }
+                else:
+                    raise HTTPException(500, detail="Failed to generate secret code")
+        else:
+            # Email already registered as different user type
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="This email is already registered with a different account type"
+            )
+    
+    try:
+        # Generate secret code
+        secret_code = generate_secret_code(email.lower(), omd_id)
+        
+        # Generate a random password (won't be used for OMD_User login)
+        temp_password = str(uuid.uuid4())
+        hashed = get_password_hash(temp_password)
+        
+        # Get default role
+        role = request.app.state.config.DEFAULT_USER_ROLE if Users.has_users() else "admin"
+        
+        # Create new OMD_User
+        user = Auths.insert_new_auth(
+            email=email.lower(),
+            password=hashed,
+            name=name or email.lower(),
+            profile_image_url="/user.png",
+            role=role,
+            user_type="omd",
+        )
+        
+        if user:
+            # Update user with secret code
+            updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+            
+            # Also update with omd_id
+            if updated_user:
+                Users.update_user_by_id(user.id, {"omd_id": omd_id})
+            
+            if updated_user:
+                # Add user to OMD group
+                from open_webui.models.groups import Groups
+                try:
+                    all_groups = Groups.get_groups()
+                    omd_group = None
+                    for group in all_groups:
+                        if group.name == "OMD":
+                            omd_group = group
+                            break
+                    
+                    # If OMD group doesn't exist, create it
+                    if not omd_group:
+                        from open_webui.models.groups import GroupForm
+                        group_form = GroupForm(
+                            name="OMD",
+                            description="OMD Users Group",
+                            user_ids=[]
+                        )
+                        omd_group = Groups.insert_new_group(user.id, group_form)
+                        log.info(f"Created OMD group: {omd_group.id}")
+                    
+                    # Add user to the OMD group
+                    if omd_group:
+                        Groups.add_users_to_group(omd_group.id, [user.id])
+                        log.info(f"Added OMD user {user.id} to OMD group")
+                except Exception as e:
+                    log.error(f"Error adding OMD user to group: {str(e)}")
+                
+                return {
+                    "success": True,
+                    "message": "OMD_User created successfully",
+                    "email": updated_user.email,
+                    "secret_code": secret_code,
+                    "user_id": updated_user.id
+                }
+            else:
+                raise HTTPException(500, detail="Failed to set secret code")
+        else:
+            raise HTTPException(500, detail="Failed to create OMD_User")
+    
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"OMD signup error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during OMD signup")
+
+
+@router.get("/omd/signin")
+async def omd_signin(
+    request: Request,
+    response: Response,
+    email: str,
+    secret_code: Optional[str] = None
+):
+    """
+    OMD_User signin endpoint using query parameters.
+    
+    Parameters:
+    - email: User's email address
+    - secret_code: Optional secret code for authentication
+    
+    If email exists and is OMD_User:
+    - With secret_code: Validates and signs in if match
+    - Without secret_code: Generates new secret code and returns it
+    """
+    # Check if this is a browser request (wants HTML) or API request (wants JSON)
+    accept_header = request.headers.get("accept", "")
+    is_browser_request = "text/html" in accept_header
+    
+    if not validate_email_format(email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    try:
+        # Get user by email
+        user = Users.get_user_by_email(email.lower())
+        
+        if not user:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                detail="User not found. Please signup first."
+            )
+        
+        # Check if user is OMD_User
+        if user.user_type != "omd":
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="This email is registered with a different account type. Please use regular signin."
+            )
+        
+        # If secret_code is provided, validate it
+        if secret_code:
+            if user.secret_code and user.secret_code == secret_code:
+                # Secret code matches, proceed with signin
+                expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+                expires_at = None
+                if expires_delta:
+                    expires_at = int(time.time()) + int(expires_delta.total_seconds())
+                
+                token = create_token(
+                    data={"id": user.id},
+                    expires_delta=expires_delta,
+                )
+                
+                datetime_expires_at = (
+                    datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                    if expires_at
+                    else None
+                )
+                
+                # Set the cookie token
+                response.set_cookie(
+                    key="token",
+                    value=token,
+                    expires=datetime_expires_at,
+                    httponly=True,
+                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                    secure=WEBUI_AUTH_COOKIE_SECURE,
+                )
+                
+                user_permissions = get_permissions(
+                    user.id, request.app.state.config.USER_PERMISSIONS
+                )
+                
+                # For browser requests, return HTML that sets up session and redirects
+                if is_browser_request:
+                    user_data = {
+                        "token": token,
+                        "token_type": "Bearer",
+                        "expires_at": expires_at,
+                        "id": user.id,
+                        "email": user.email,
+                        "name": user.name,
+                        "role": user.role,
+                        "profile_image_url": user.profile_image_url,
+                        "user_type": "omd",
+                        "permissions": user_permissions,
+                    }
+                    
+                    import json
+                    user_json = json.dumps(user_data)
+                    
+                    html_content = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Signing in...</title>
+                        <script>
+                            // Set session data
+                            const userData = {user_json};
+                            sessionStorage.setItem('token', userData.token);
+                            localStorage.setItem('token', userData.token);
+                            
+                            // Redirect to dashboard
+                            window.location.href = '/';
+                        </script>
+                    </head>
+                    <body>
+                        <p>Signing in... Please wait.</p>
+                    </body>
+                    </html>
+                    """
+                    
+                    html_response = HTMLResponse(content=html_content, status_code=200)
+                    html_response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    return html_response
+                
+                # For API requests, return JSON
+                response.set_cookie(
+                    key="token",
+                    value=token,
+                    expires=datetime_expires_at,
+                    httponly=True,
+                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                    secure=WEBUI_AUTH_COOKIE_SECURE,
+                )
+                
+                return {
+                    "token": token,
+                    "token_type": "Bearer",
+                    "expires_at": expires_at,
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role,
+                    "profile_image_url": user.profile_image_url,
+                    "user_type": "omd",
+                    "permissions": user_permissions,
+                }
+            else:
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid secret code"
+                )
+        else:
+            # No secret_code provided, check if user has one
+            if user.secret_code:
+                # User has secret code but didn't provide it
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Secret code required for signin"
+                )
+            else:
+                # User has no secret code, generate one and return it
+                # Generate secret code based on email and a random value
+                random_suffix = secrets.token_hex(8)
+                secret_code = generate_secret_code(email.lower(), random_suffix)
+                
+                updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+                
+                if updated_user:
+                    # Auto-signin after generating secret code
+                    expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+                    expires_at = None
+                    if expires_delta:
+                        expires_at = int(time.time()) + int(expires_delta.total_seconds())
+                    
+                    token = create_token(
+                        data={"id": updated_user.id},
+                        expires_delta=expires_delta,
+                    )
+                    
+                    datetime_expires_at = (
+                        datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                        if expires_at
+                        else None
+                    )
+                    
+                    # Set the cookie token
+                    response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    
+                    user_permissions = get_permissions(
+                        updated_user.id, request.app.state.config.USER_PERMISSIONS
+                    )
+                    
+                    # For browser requests, return HTML that sets up session and redirects
+                    if is_browser_request:
+                        user_data = {
+                            "token": token,
+                            "token_type": "Bearer",
+                            "expires_at": expires_at,
+                            "id": updated_user.id,
+                            "email": updated_user.email,
+                            "name": updated_user.name,
+                            "role": updated_user.role,
+                            "profile_image_url": updated_user.profile_image_url,
+                            "user_type": "omd",
+                            "permissions": user_permissions,
+                        }
+                        
+                        import json
+                        user_json = json.dumps(user_data)
+                        
+                        html_content = f"""
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Signing in...</title>
+                            <script>
+                                // Set session data
+                                const userData = {user_json};
+                                sessionStorage.setItem('token', userData.token);
+                                localStorage.setItem('token', userData.token);
+                                
+                                // Redirect to dashboard
+                                window.location.href = '/';
+                            </script>
+                        </head>
+                        <body>
+                            <p>Signing in... Please wait.</p>
+                        </body>
+                        </html>
+                        """
+                        
+                        html_response = HTMLResponse(content=html_content, status_code=200)
+                        html_response.set_cookie(
+                            key="token",
+                            value=token,
+                            expires=datetime_expires_at,
+                            httponly=True,
+                            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                            secure=WEBUI_AUTH_COOKIE_SECURE,
+                        )
+                        return html_response
+                    
+                    # For API requests, return JSON
+                    response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    
+                    return {
+                        "token": token,
+                        "token_type": "Bearer",
+                        "expires_at": expires_at,
+                        "id": updated_user.id,
+                        "email": updated_user.email,
+                        "name": updated_user.name,
+                        "role": updated_user.role,
+                        "profile_image_url": updated_user.profile_image_url,
+                        "user_type": "omd",
+                        "permissions": user_permissions,
+                    }
+                else:
+                    raise HTTPException(500, detail="Failed to generate secret code")
+    
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"OMD signin error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during OMD signin")
 
 
 @router.post("/guest", response_model=SessionUserResponse)
