@@ -133,13 +133,9 @@
 							</div>
 						</div>
 						<div class="flex w-full justify-between items-center">
-							<div class="flex flex-col text-xs text-gray-700 dark:text-gray-200">
-								<div class="flex gap-1">
-									<Tooltip content={WEBUI_BUILD_HASH}>
-										v{WEBUI_VERSION}
-									</Tooltip>
-
-									{#if $config?.features?.enable_version_update_check}
+				<div class="flex flex-col text-xs text-gray-700 dark:text-gray-200">
+					<div class="flex gap-1">
+						<!-- Version hidden -->									{#if $config?.features?.enable_version_update_check}
 										<a
 											href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
 											target="_blank"

@@ -476,6 +476,12 @@
 
 	const getAvailableSettings = () => {
 		return allSettings.filter((tab) => {
+			// For non-admin users, only show General and Account tabs
+			if ($user?.role !== 'admin') {
+				return tab.id === 'general' || tab.id === 'account';
+			}
+
+			// Admin users see all tabs with existing logic
 			if (tab.id === 'connections') {
 				return $config?.features?.enable_direct_connections;
 			}
