@@ -742,7 +742,7 @@
 			>
 				<img
 					crossorigin="anonymous"
-					src="{WEBUI_BASE_URL}/static/{$showSidebar ? ($theme === 'dark' || ($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'logo-dark.png' : 'logo.png') : 'favicon.png'}"
+					src="{WEBUI_BASE_URL}/static/{$showSidebar ? ($theme === 'dark' || ($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'logo-slogan-light.svg' : 'logo-slogan-dark.svg') : 'favicon.png'}"
 					class="sidebar-new-chat-icon {$showSidebar ? 'w-full h-full object-contain py-1 px-2' : 'size-6 rounded-full'}"
 					alt=""
 				/>

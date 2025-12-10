@@ -10,6 +10,8 @@
 	import Groups from './Users/Groups.svelte';
 	import Plans from './Users/Plans.svelte';
 	import Organizations from './Users/Organizations.svelte';
+	import Omd from './Users/Omd.svelte';
+	import Guest from './Users/Guest.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -17,7 +19,7 @@
 	$: {
 		const pathParts = $page.url.pathname.split('/');
 		const tabFromPath = pathParts[pathParts.length - 1];
-		selectedTab = ['overview', 'groups', 'plans', 'organizations'].includes(tabFromPath) ? tabFromPath : 'overview';
+		selectedTab = ['overview', 'groups', 'plans', 'organizations', 'omd', 'guest'].includes(tabFromPath) ? tabFromPath : 'overview';
 	}
 
 	$: if (selectedTab) {
@@ -157,6 +159,38 @@
 			</svg>
 			<span>{$i18n.t('Organization')}</span>
 		</button>
+
+		<!-- OMD Tab -->
+		<button
+			id="omd"
+			class="px-4 py-2.5 min-w-fit rounded-lg lg:w-full flex items-center gap-3 text-left transition {selectedTab === 'omd'
+				? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
+				: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+			on:click={() => {
+				goto('/admin/users/omd');
+			}}
+		>
+			<div class="w-4 h-4 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-[8px] flex-shrink-0">
+				OMD
+			</div>
+			<span>OMD</span>
+		</button>
+
+		<!-- Guest Tab -->
+		<button
+			id="guest"
+			class="px-4 py-2.5 min-w-fit rounded-lg lg:w-full flex items-center gap-3 text-left transition {selectedTab === 'guest'
+				? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium'
+				: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+			on:click={() => {
+				goto('/admin/users/guest');
+			}}
+		>
+			<div class="w-4 h-4 rounded-full bg-gray-600 dark:bg-gray-500 flex items-center justify-center text-white font-bold text-[7px] flex-shrink-0">
+				G
+			</div>
+			<span>Guest</span>
+		</button>
 	</div>
 
 	<div class="flex-1 mt-1 lg:mt-0 px-[16px] lg:pr-[16px] lg:pl-0 overflow-y-scroll">
@@ -168,6 +202,10 @@
 			<Plans />
 		{:else if selectedTab === 'organizations'}
 			<Organizations />
+		{:else if selectedTab === 'omd'}
+			<Omd />
+		{:else if selectedTab === 'guest'}
+			<Guest />
 		{/if}
 	</div>
 </div>

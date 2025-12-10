@@ -1,6 +1,6 @@
 {
-  "name": "Open WebUI",
-  "short_name": "WebUI",
+  "name": "OptimalMD",
+  "short_name": "OptimalMD",
   "icons": [
     {
       "src": "/static/web-app-manifest-192x192.png",
