@@ -14,6 +14,7 @@
 	let name = '';
 	let email = '';
 	let agreementChecked = false;
+	let showFullDisclaimer = true;
 
 	const guestSignInHandler = async () => {
 		if (!name || !email) {
@@ -242,25 +243,30 @@
 									<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
 										We'll never share your email with anyone else.
 									</p>
-								</div>
+							</div>
 
-								<!-- Disclaimer -->
-								<div class="flex items-start space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-									<input
-										type="checkbox"
-										id="agreement"
-										bind:checked={agreementChecked}
-										class="mt-1 h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
-									/>
-									<label for="agreement" class="text-xs text-gray-700 dark:text-gray-300">
+							<!-- Disclaimer -->
+							<div class="flex items-start space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+								<input
+									type="checkbox"
+									id="agreement"
+									bind:checked={agreementChecked}
+									style="width: 12px; height: 12px; min-width: 12px; min-height: 12px; margin-top: 2px; align-self: flex-start;"
+									class="flex-shrink-0 text-blue-600 border-gray-300 dark:border-gray-600 rounded-none focus:ring-blue-500"
+								/>
+								<label for="agreement" class="text-xs text-gray-700 dark:text-gray-300 leading-normal">
+									{#if showFullDisclaimer}
 										By entering this site, you fully acknowledge this is not medical advice and not intended to replace
 										the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on
 										the information gained from this AI diagnostic tool. It is for educational and research use only.
-									</label>
-								</div>
+										<button type="button" on:click={() => showFullDisclaimer = false} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show less</button>
+									{:else}
+										By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician.
+										<button type="button" on:click={() => showFullDisclaimer = true} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show more</button>
+									{/if}
+								</label>
 							</div>
-
-							<div class="mt-6">
+						</div>							<div class="mt-6">
 								<button
 									class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 									type="submit"

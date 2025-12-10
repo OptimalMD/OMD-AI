@@ -24,12 +24,20 @@
 		updatePlan,
 		deletePlan
 	} from '$lib/apis/subscriptions';
+	import { getModels } from '$lib/apis';
 
 	const i18n = getContext('i18n');
 
 	let loaded = false;
 	let plans = [];
 	let filteredPlans;
+	let models = [];
+
+	// Function to get model name from ID
+	const getModelName = (modelId) => {
+		const model = models.find(m => m.id === modelId);
+		return model?.name || model?.id || modelId;
+	};
 
 	$: filteredPlans = plans.filter((plan) => {
 		if (search === '') {
@@ -61,6 +69,17 @@
 		} catch (error) {
 			toast.error(`${error}`);
 			console.error('Error fetching plans:', error);
+		}
+	};
+
+	const loadModels = async () => {
+		try {
+			const res = await getModels(localStorage.token);
+			if (res) {
+				models = res.data || res || [];
+			}
+		} catch (error) {
+			console.error('Error loading models:', error);
 		}
 	};
 
@@ -129,6 +148,7 @@
 			return;
 		}
 
+		await loadModels();
 		await setPlans();
 		loaded = true;
 	});
@@ -246,7 +266,7 @@
 								<div class="flex flex-wrap gap-2">
 									{#each plan.models as model}
 										<span class="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-2.5 py-1 rounded text-xs font-medium border border-blue-100 dark:border-blue-800">
-											{model}
+											{getModelName(model)}
 										</span>
 									{/each}
 								</div>

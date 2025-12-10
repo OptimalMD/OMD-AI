@@ -247,6 +247,7 @@
 					/>
 				</div>
 
+				{#if price > 0}
 				<div>
 					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-duration">
 						{$i18n.t('Duration')}
@@ -261,10 +262,12 @@
 						required
 					/>
 				</div>
+				{/if}
 			</div>
 
 			<!-- Duration Type and Select Models -->
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid {price > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-4">
+				{#if price > 0}
 				<div>
 					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="duration-type">
 						{$i18n.t('Duration Type')}
@@ -281,6 +284,7 @@
 						<option value="years">{$i18n.t('years')}</option>
 					</select>
 				</div>
+				{/if}
 
 				<div>
 					<label class="block text-sm font-normal text-gray-700 dark:text-gray-300 mb-1.5" for="plan-models">

@@ -54,6 +54,9 @@
 	let selectedPlanType: 'free' | 'paid' = 'free';
 	let paymentMethod: 'card' | 'bank' = 'card';
 	
+	// Computed: Check if selected plan is free
+	$: isFreePlan = selectedPlan && (selectedPlan.price === 0 || (selectedPlan.plan_name || selectedPlan.name || '').toLowerCase().includes('free'));
+	
 	// Personal Information
 	let firstName = '';
 	let lastName = '';
@@ -69,6 +72,7 @@
 	let routingNumber = '';
 	let accountNumber = '';
 	let agreementChecked = false;
+	let showFullDisclaimer = true;
 
 	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
@@ -208,9 +212,8 @@
 			name = `${firstName} ${lastName}`;
 			
 			// Check if selected plan is free
-			const plan = subscriptionPlans.find(p => p.id === selectedPlanId);
-			if (plan && (plan.price === 0 || (plan.plan_name || plan.name || '').toLowerCase().includes('free'))) {
-				// Skip payment for free plans
+			if (isFreePlan) {
+				// Skip payment for free plans - complete registration immediately
 				handleCompleteRegistration();
 			} else {
 				currentSignupStep = 3;
@@ -295,6 +298,7 @@
 					setTimeout(() => {
 						mode = 'signin';
 						email = result.email || email;
+						password = ''; // Clear the temporary password
 						currentSignupStep = 1; // Reset signup flow
 						orgCode = null; // Clear org code
 					}, 3000);
@@ -647,18 +651,16 @@
 									</div>
 
 									<!-- Progress Steps -->
-									<div class="w-full mb-8 px-4">
-										<div class="relative">
-											<!-- Progress Bar Background -->
-											<div class="absolute top-6 left-0 right-0 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-											
-											<!-- Progress Bar Fill -->
-											<div 
-												class="absolute top-6 left-0 h-1 bg-green-600 rounded-full transition-all duration-500 ease-in-out"
-												style="width: {currentSignupStep === 1 ? '0%' : currentSignupStep === 2 ? '50%' : '100%'}"
-											></div>
-
-											<!-- Steps Container -->
+								<div class="w-full mb-8 px-4">
+									<div class="relative">
+										<!-- Progress Bar Background -->
+										<div class="absolute top-6 left-0 right-0 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+										
+										<!-- Progress Bar Fill -->
+										<div 
+											class="absolute top-6 left-0 h-1 bg-green-600 rounded-full transition-all duration-500 ease-in-out"
+											style="width: {isFreePlan ? (currentSignupStep === 1 ? '0%' : '100%') : (currentSignupStep === 1 ? '0%' : currentSignupStep === 2 ? '50%' : '100%')}"
+										></div>											<!-- Steps Container -->
 											<div class="relative flex items-center justify-between">
 												<!-- Step 1 -->
 												<div class="flex flex-col items-start flex-1">
@@ -680,8 +682,8 @@
 													<span class="text-xs sm:text-sm mt-3 font-semibold {currentSignupStep >= 1 ? 'text-green-600' : 'text-gray-500 dark:text-gray-400'}">Plan Info</span>
 												</div>
 
-												<!-- Step 2 -->
-												<div class="flex flex-col items-center flex-1">
+												<!-- Step 2 - Position changes based on whether there's a step 3 -->
+												<div class="flex flex-col {isFreePlan ? 'items-end' : 'items-center'} flex-1">
 													<div
 														class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg border-4 border-white dark:border-gray-900 {currentSignupStep >= 2
 															? 'bg-green-600 text-white'
@@ -700,25 +702,27 @@
 													<span class="text-xs sm:text-sm mt-3 font-semibold {currentSignupStep >= 2 ? 'text-green-600' : 'text-gray-500 dark:text-gray-400'}">Personal Information</span>
 												</div>
 
-												<!-- Step 3 -->
-												<div class="flex flex-col items-end flex-1">
-													<div
-														class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg border-4 border-white dark:border-gray-900 {currentSignupStep >= 3
-															? 'bg-green-600 text-white'
-															: 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400'}"
-													>
-														{#if currentSignupStep > 3}
-															<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-																<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-															</svg>
-														{:else}
-															<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-													</svg>
-														{/if}
+												<!-- Step 3 - Only show for paid plans -->
+												{#if !isFreePlan}
+													<div class="flex flex-col items-end flex-1">
+														<div
+															class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg border-4 border-white dark:border-gray-900 {currentSignupStep >= 3
+																? 'bg-green-600 text-white'
+																: 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400'}"
+														>
+															{#if currentSignupStep > 3}
+																<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+																	<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+																</svg>
+															{:else}
+																<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+														</svg>
+															{/if}
+														</div>
+														<span class="text-xs sm:text-sm mt-3 font-semibold {currentSignupStep >= 3 ? 'text-green-600' : 'text-gray-500 dark:text-gray-400'}">Payment</span>
 													</div>
-													<span class="text-xs sm:text-sm mt-3 font-semibold {currentSignupStep >= 3 ? 'text-green-600' : 'text-gray-500 dark:text-gray-400'}">Payment</span>
-												</div>
+												{/if}
 											</div>
 										</div>
 									</div>
@@ -901,6 +905,30 @@
 													required
 												/>
 											</div>
+
+											<!-- Disclaimer - Show for free plans (since they skip payment step) -->
+											{#if isFreePlan}
+												<div class="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+													<input
+														type="checkbox"
+														id="agreement"
+														bind:checked={agreementChecked}
+														style="width: 12px; height: 12px; min-width: 12px; min-height: 12px;"
+														class="mt-0 text-green-600 border-gray-300 dark:border-gray-600 rounded-none focus:ring-green-500"
+													/>
+													<label for="agreement" class="text-xs text-gray-600 dark:text-gray-300">
+														{#if showFullDisclaimer}
+															By entering this site, you fully acknowledge this is not medical advice and not intended to replace
+															the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on
+															the information gained from this AI diagnostic tool. It is for educational and research use only.
+															<button type="button" on:click={() => showFullDisclaimer = false} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show less</button>
+														{:else}
+															By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician.
+															<button type="button" on:click={() => showFullDisclaimer = true} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show more</button>
+														{/if}
+													</label>
+												</div>
+											{/if}
 										</div>
 									{:else if currentSignupStep === 3}
 										<!-- Step 3: Payment -->
@@ -1076,13 +1104,19 @@
 													type="checkbox"
 													id="agreement"
 													bind:checked={agreementChecked}
-													class="mt-1 h-4 w-4 text-green-600 border-gray-300 dark:border-gray-600 rounded focus:ring-green-500"
+													style="width: 12px; height: 12px; min-width: 12px; min-height: 12px;"
+													class="mt-0 text-green-600 border-gray-300 dark:border-gray-600 rounded-none focus:ring-green-500"
 												/>
 												<label for="agreement" class="text-xs text-gray-600 dark:text-gray-300">
-													By entering this site, you fully acknowledge this is not medical advice and not intended to replace
-													the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on
-													the information gained from this AI diagnostic tool. It is for educational and research use only.
-													<button type="button" class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show less</button>
+													{#if showFullDisclaimer}
+														By entering this site, you fully acknowledge this is not medical advice and not intended to replace
+														the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on
+														the information gained from this AI diagnostic tool. It is for educational and research use only.
+														<button type="button" on:click={() => showFullDisclaimer = false} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show less</button>
+													{:else}
+														By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician.
+														<button type="button" on:click={() => showFullDisclaimer = true} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show more</button>
+													{/if}
 												</label>
 											</div>
 										</div>
@@ -1105,7 +1139,7 @@
 											on:click={handleSignupContinue}
 											class="flex-1 px-4 py-3 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-semibold rounded-lg transition-all text-sm"
 										>
-											{currentSignupStep < 3 ? 'Continue' : 'Complete registration'}
+											{isFreePlan ? (currentSignupStep === 1 ? 'Continue' : 'Complete registration') : (currentSignupStep < 3 ? 'Continue' : 'Complete registration')}
 										</button>
 									</div>
 
@@ -1220,7 +1254,8 @@
 												bind:value={password}
 												type="password"
 												id="password"
-												inputClassName="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+												inputClassName="w-full px-4 py-3 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+												showButtonClassName="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
 												placeholder={$i18n.t('Enter Your Password')}
 												required
 											/>
@@ -1244,7 +1279,8 @@
 													bind:value={confirmPassword}
 													type="password"
 													id="confirm-password"
-													inputClassName="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+													inputClassName="w-full px-4 py-3 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+													showButtonClassName="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
 													placeholder={$i18n.t('Confirm Your Password')}
 													required
 												/>
@@ -1257,12 +1293,18 @@
 												<input
 													type="checkbox"
 													id="disclaimer"
-													class="mt-1 h-4 w-4 text-green-600 border-gray-300 dark:border-gray-600 rounded focus:ring-green-500"
+													style="width: 12px; height: 12px; min-width: 12px; min-height: 12px;"
+													class="mt-0 text-green-600 border-gray-300 dark:border-gray-600 rounded-none focus:ring-green-500"
 													required
 												/>
 												<label for="disclaimer" class="ml-2 text-xs text-gray-600 dark:text-gray-400">
-													By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on the information gained from this AI diagnostic tool. It is for educational and research use only. 
-													<button type="button" class="text-blue-600 dark:text-blue-400 hover:underline">Show less</button>
+													{#if showFullDisclaimer}
+														By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician. OptimalMD accepts no responsibility for actions taken based on the information gained from this AI diagnostic tool. It is for educational and research use only.
+														<button type="button" on:click={() => showFullDisclaimer = false} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show less</button>
+													{:else}
+														By entering this site, you fully acknowledge this is not medical advice and not intended to replace the relationship with your physician.
+														<button type="button" on:click={() => showFullDisclaimer = true} class="text-blue-600 dark:text-blue-400 hover:underline ml-1">Show more</button>
+													{/if}
 												</label>
 											</div>
 										{/if}
