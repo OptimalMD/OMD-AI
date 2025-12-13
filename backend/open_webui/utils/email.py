@@ -464,3 +464,128 @@ def get_password_reset_email_template(user_name: str, reset_password: str) -> st
 </body>
 </html>
 """
+
+
+def get_password_reset_link_email_template(user_name: str, reset_link: str) -> str:
+    """
+    Generate password reset link email HTML template
+    
+    Args:
+        user_name: Name of the user
+        reset_link: URL for password reset
+    
+    Returns:
+        str: HTML email content
+    """
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password - OptimalMD</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }}
+        .header p {{
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }}
+        .content {{
+            padding: 40px 30px;
+        }}
+        .greeting {{
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }}
+        .info-box {{
+            background-color: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }}
+        .cta-button {{
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white !important;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+        }}
+        .warning-box {{
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }}
+        .footer {{
+            background-color: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> Reset Your Password</h1>
+        </div>
+        <div class="content">
+            <p class="greeting">Hello <strong>{user_name}</strong>,</p>
+            <p>Click the button below to reset your password:</p>
+            <center><a href="{reset_link}" class="cta-button">Reset My Password </a></center>
+            <div class="warning-box"><p> This link expires in 24 hours and can only be used once.</p></div>
+        </div>
+        <div class="footer"><p> 2025 OptimalMD. All rights reserved.</p></div>
+    </div>
+</body>
+</html>
+"""
+
+
+def get_password_reset_success_email_template(user_name: str) -> str:
+    """Password reset success email"""
+    return f"""
+<!DOCTYPE html>
+<html><body style="font-family: Arial, sans-serif;">
+<div style="max-width: 600px; margin: 0 auto; background: white; padding: 40px;">
+<h1 style="color: #16a34a;"> Password Reset Successful</h1>
+<p>Hello <strong>{user_name}</strong>,</p>
+<p>Your password has been successfully reset!</p>
+<center><a href="https://app.optimalmd.com" style="display: inline-block; background: #16a34a; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px;">Sign In to OptimalMD</a></center>
+</div>
+</body></html>
+"""

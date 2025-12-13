@@ -692,7 +692,7 @@
 				} else {
 					// Don't redirect if we're already on the auth or guest page
 					// Needed because we pass in tokens from OAuth logins via URL fragments
-					if ($page.url.pathname !== '/auth' && $page.url.pathname !== '/guest') {
+					if ($page.url.pathname !== '/auth' && $page.url.pathname !== '/guest' && !$page.url.pathname.startsWith('/auth/reset-password')) {
 						await goto(`/auth?redirect=${encodedUrl}`);
 					}
 				}

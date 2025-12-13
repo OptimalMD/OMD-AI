@@ -17,6 +17,7 @@
 	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import EditPlanModal from './Plans/EditPlanModal.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import Loader from '$lib/components/common/Loader.svelte';
 
 	import {
 		getSubscriptionPlans,
@@ -25,6 +26,7 @@
 		deletePlan
 	} from '$lib/apis/subscriptions';
 	import { getModels } from '$lib/apis';
+	import SpinnerFull from '$lib/components/common/SpinnerFull.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -323,4 +325,7 @@
 			</div>
 		{/if}
 	</div>
+
+{:else}
+	<SpinnerFull />
 {/if}

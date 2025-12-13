@@ -9,7 +9,7 @@
 	import { page } from '$app/stores';
 
 	import { getBackendConfig } from '$lib/apis';
-	import { ldapUserSignIn, getSessionUser, userSignIn, userSignUp } from '$lib/apis/auths';
+	import { ldapUserSignIn, getSessionUser, userSignIn, userSignUp, forgotPassword } from '$lib/apis/auths';
 	import { getSubscriptionPlans } from '$lib/apis/subscriptions';
 
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
@@ -73,6 +73,11 @@
 	let accountNumber = '';
 	let agreementChecked = false;
 	let showFullDisclaimer = true;
+
+	// Forgot password modal
+	let showForgotPasswordModal = false;
+	let forgotPasswordEmail = '';
+	let forgotPasswordLoading = false;
 
 	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
@@ -192,6 +197,32 @@
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(`${error}`);
+		}
+	};
+
+	const handleForgotPassword = async () => {
+		if (!forgotPasswordEmail || !forgotPasswordEmail.trim()) {
+			toast.error($i18n.t('Please enter your email address'));
+			return;
+		}
+
+		forgotPasswordLoading = true;
+
+		try {
+			const result = await forgotPassword(forgotPasswordEmail.trim());
+			
+			if (result && result.success) {
+				toast.success($i18n.t('Password reset link sent to your email.'));
+				showForgotPasswordModal = false;
+				forgotPasswordEmail = '';
+			} else {
+				toast.error($i18n.t('Failed to send reset link. Please try again.'));
+			}
+		} catch (error) {
+			const errorMessage = error?.toString() || 'An error occurred. Please try again.';
+			toast.error($i18n.t(errorMessage));
+		} finally {
+			forgotPasswordLoading = false;
 		}
 	};
 
@@ -1261,7 +1292,14 @@
 											/>
 											{#if mode === 'signin'}
 												<div class="mt-2 text-right">
-													<button type="button" class="text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition">
+													<button 
+														type="button" 
+														class="text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition"
+														on:click={() => {
+															forgotPasswordEmail = email;
+															showForgotPasswordModal = true;
+														}}
+													>
 														Forgot password?
 													</button>
 												</div>
@@ -1556,6 +1594,106 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Forgot Password Modal -->
+{#if showForgotPasswordModal}
+	<div 
+		class="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 backdrop-blur-sm"
+		on:click={() => {
+			if (!forgotPasswordLoading) {
+				showForgotPasswordModal = false;
+				forgotPasswordEmail = '';
+			}
+		}}
+		on:keydown={(e) => {
+			if (e.key === 'Escape' && !forgotPasswordLoading) {
+				showForgotPasswordModal = false;
+				forgotPasswordEmail = '';
+			}
+		}}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="forgot-password-title"
+		tabindex="-1"
+	>
+		<div 
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+			on:click|stopPropagation
+			on:keydown|stopPropagation
+			role="document"
+		>
+			<!-- Modal Header -->
+			<div class="bg-gradient-to-r from-green-600 to-green-700 p-6 text-white">
+				<h2 id="forgot-password-title" class="text-2xl font-bold">Forgot your password?</h2>
+				<p class="text-green-100 text-sm mt-1">Enter your email address and we'll send you a link to reset your password.</p>
+			</div>
+
+			<!-- Modal Body -->
+			<div class="p-6">
+				{#if forgotPasswordLoading}
+					<div class="flex flex-col items-center justify-center py-8">
+						<Spinner className="w-8 h-8 text-green-600" />
+						<p class="mt-4 text-gray-600 dark:text-gray-300">Sending reset link...</p>
+					</div>
+				{:else}
+					<form on:submit|preventDefault={handleForgotPassword}>
+						<div class="mb-6">
+							<label 
+								for="forgot-password-email" 
+								class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block"
+							>
+								Email address
+							</label>
+							<input
+								id="forgot-password-email"
+								type="email"
+								bind:value={forgotPasswordEmail}
+								class="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+								placeholder="Enter your email address"
+								required
+								autocomplete="email"
+							/>
+						</div>
+
+						<!-- Success Message Display Area -->
+						<div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg" style="display: none;" id="success-message">
+							<p class="text-sm text-green-800 dark:text-green-200">
+								Password reset link sent to your email.
+							</p>
+						</div>
+
+						<!-- Divider -->
+						<div class="flex items-center my-6">
+							<div class="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+							<span class="px-4 text-xs text-gray-500 dark:text-gray-400">Remember your password?</span>
+							<div class="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+						</div>
+
+						<!-- Action Buttons -->
+						<div class="flex gap-3">
+							<button
+								type="button"
+								on:click={() => {
+									showForgotPasswordModal = false;
+									forgotPasswordEmail = '';
+								}}
+								class="flex-1 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+							>
+								Back to Login
+							</button>
+							<button
+								type="submit"
+								class="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-green-700 rounded-lg hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 transition shadow-md hover:shadow-lg"
+							>
+								Send Reset Link
+							</button>
+						</div>
+					</form>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	#auth-page {

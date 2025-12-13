@@ -33,6 +33,8 @@
 	import Banner from '$lib/components/common/Banner.svelte';
 	import Markdown from '$lib/components/chat/Messages/Markdown.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Loader from '$lib/components/common/Loader.svelte';
+	import SpinnerFull from '$lib/components/common/SpinnerFull.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -161,9 +163,7 @@
 {/if}
 
 {#if users === null || total === null}
-	<div class="my-10">
-		<Spinner className="size-5" />
-	</div>
+	<SpinnerFull />
 {:else}
 	<!-- Header with Title and Add Button -->
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">

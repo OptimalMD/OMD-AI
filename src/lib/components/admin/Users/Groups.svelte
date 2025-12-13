@@ -28,6 +28,7 @@
 		getAllUsers,
 		updateUserDefaultPermissions
 	} from '$lib/apis/users';
+	import SpinnerFull from '$lib/components/common/SpinnerFull.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -212,4 +213,7 @@
 			</div>
 		</button>
 	</div>
+
+{:else}
+	<SpinnerFull />
 {/if}

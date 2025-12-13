@@ -16,6 +16,7 @@
 	import EditOrganizationModal from './Organizations/EditOrganizationModal.svelte';
 	import OrganizationDetailsPanel from './Organizations/OrganizationDetailsPanel.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import Loader from '$lib/components/common/Loader.svelte';
 	import {
 		createNewOrganization,
 		getOrganizations,
@@ -23,6 +24,7 @@
 		deleteOrganizationById
 	} from '$lib/apis/organizations';
 	import { getSubscriptionPlans } from '$lib/apis/subscriptions';
+	import SpinnerFull from '$lib/components/common/SpinnerFull.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -365,4 +367,7 @@
 			{$i18n.t('This action cannot be undone.')}
 		</div>
 	</ConfirmDialog>
+
+{:else}
+	<SpinnerFull />
 {/if}

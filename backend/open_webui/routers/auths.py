@@ -18,8 +18,11 @@ from open_webui.models.auths import (
     SigninResponse,
     SignupForm,
     GuestSigninForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
     UpdatePasswordForm,
     UserResponse,
+    PasswordResetTokens,
 )
 from open_webui.models.users import Users, UpdateProfileForm
 from open_webui.models.groups import Groups
@@ -32,6 +35,9 @@ from open_webui.models.subscriptions import (
 from open_webui.utils.email import (
     EmailService,
     get_welcome_email_template,
+    get_password_reset_email_template,
+    get_password_reset_link_email_template,
+    get_password_reset_success_email_template,
 )
 
 from open_webui.constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
@@ -1155,6 +1161,183 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
         }
     else:
         raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_CRED)
+
+
+############################
+# Forgot Password
+############################
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request, form_data: ForgotPasswordForm):
+    """
+    Send password reset link to user.
+    Does NOT allow guest users or OND users to reset password.
+    """
+    try:
+        email = form_data.email.lower()
+        
+        # Check if user exists
+        user = Users.get_user_by_email(email)
+        if not user:
+            # Return success even if user doesn't exist (security best practice)
+            return {"success": True, "message": "If the email exists, a password reset link has been sent."}
+        
+        # Check if user is a guest user
+        if hasattr(user, 'user_type') and user.user_type == "guest":
+            raise HTTPException(
+                status_code=403,
+                detail="Guest users cannot reset passwords. Please contact support."
+            )
+        
+        # Check if user is an OND user (has omd_id)
+        if hasattr(user, 'omd_id') and user.omd_id:
+            raise HTTPException(
+                status_code=403,
+                detail="OND users cannot reset passwords through this method. Please contact support."
+            )
+        
+        # Check if SMTP is configured
+        smtp_host = SMTP_HOST.value if hasattr(SMTP_HOST, 'value') else SMTP_HOST
+        smtp_port = SMTP_PORT.value if hasattr(SMTP_PORT, 'value') else SMTP_PORT
+        smtp_username = SMTP_USERNAME.value if hasattr(SMTP_USERNAME, 'value') else SMTP_USERNAME
+        smtp_password = SMTP_PASSWORD.value if hasattr(SMTP_PASSWORD, 'value') else SMTP_PASSWORD
+        smtp_from_email = SMTP_FROM_EMAIL.value if hasattr(SMTP_FROM_EMAIL, 'value') else SMTP_FROM_EMAIL
+        smtp_from_name = SMTP_FROM_NAME.value if hasattr(SMTP_FROM_NAME, 'value') else SMTP_FROM_NAME or "OptimalMD"
+        smtp_use_tls = SMTP_USE_TLS.value if hasattr(SMTP_USE_TLS, 'value') else SMTP_USE_TLS
+        
+        if not all([smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email]):
+            log.error("SMTP is not configured properly")
+            raise HTTPException(
+                status_code=503,
+                detail="Email service is not configured. Please contact support."
+            )
+        
+        # Create password reset token
+        reset_token = PasswordResetTokens.create_token(user.id, email)
+        if not reset_token:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create reset token. Please try again."
+            )
+        
+        # Create reset link
+        base_url = str(request.base_url).rstrip('/')
+        reset_link = f"{base_url}/auth/reset-password?token={reset_token.token}"
+        
+        # Send password reset email
+        email_service = EmailService(
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_username=smtp_username,
+            smtp_password=smtp_password,
+            from_email=smtp_from_email,
+            from_name=smtp_from_name,
+            use_tls=smtp_use_tls
+        )
+        
+        html_content = get_password_reset_link_email_template(user.name, reset_link)
+        email_sent = email_service.send_email(
+            to_email=email,
+            subject="Reset Your Password - OptimalMD",
+            html_content=html_content
+        )
+        
+        if not email_sent:
+            log.error(f"Failed to send password reset email to {email}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send reset email. Please try again or contact support."
+            )
+        
+        log.info(f"Password reset link sent successfully to {email}")
+        return {"success": True, "message": "Password reset link sent to your email."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Forgot password error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing your request."
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(form_data: ResetPasswordForm):
+    """
+    Reset password using a valid token.
+    Token must be valid, not expired, and not already used.
+    """
+    try:
+        # Validate token
+        reset_token = PasswordResetTokens.get_valid_token(form_data.token)
+        if not reset_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or expired reset link. Please request a new one."
+            )
+        
+        # Get user
+        user = Users.get_user_by_id(reset_token.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found."
+            )
+        
+        # Hash new password
+        hashed_password = get_password_hash(form_data.new_password)
+        
+        # Update password
+        success = Auths.update_user_password_by_id(user.id, hashed_password)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update password. Please try again."
+            )
+        
+        # Mark token as used
+        PasswordResetTokens.mark_token_as_used(form_data.token)
+        
+        # Send success confirmation email
+        smtp_host = SMTP_HOST.value if hasattr(SMTP_HOST, 'value') else SMTP_HOST
+        smtp_port = SMTP_PORT.value if hasattr(SMTP_PORT, 'value') else SMTP_PORT
+        smtp_username = SMTP_USERNAME.value if hasattr(SMTP_USERNAME, 'value') else SMTP_USERNAME
+        smtp_password = SMTP_PASSWORD.value if hasattr(SMTP_PASSWORD, 'value') else SMTP_PASSWORD
+        smtp_from_email = SMTP_FROM_EMAIL.value if hasattr(SMTP_FROM_EMAIL, 'value') else SMTP_FROM_EMAIL
+        smtp_from_name = SMTP_FROM_NAME.value if hasattr(SMTP_FROM_NAME, 'value') else SMTP_FROM_NAME or "OptimalMD"
+        smtp_use_tls = SMTP_USE_TLS.value if hasattr(SMTP_USE_TLS, 'value') else SMTP_USE_TLS
+        
+        if all([smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email]):
+            email_service = EmailService(
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                smtp_username=smtp_username,
+                smtp_password=smtp_password,
+                from_email=smtp_from_email,
+                from_name=smtp_from_name,
+                use_tls=smtp_use_tls
+            )
+            
+            html_content = get_password_reset_success_email_template(user.name)
+            email_service.send_email(
+                to_email=user.email,
+                subject="Password Reset Successful - OptimalMD",
+                html_content=html_content
+            )
+        
+        log.info(f"Password reset successful for user {user.id}")
+        return {"success": True, "message": "Password reset successful. You can now sign in with your new password."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Reset password error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while resetting your password."
+        )
 
 
 ############################
