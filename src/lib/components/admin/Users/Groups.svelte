@@ -28,6 +28,7 @@
 		getAllUsers,
 		updateUserDefaultPermissions
 	} from '$lib/apis/users';
+	import SpinnerFull from '$lib/components/common/SpinnerFull.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -117,86 +118,69 @@
 		onSubmit={addGroupHandler}
 	/>
 
-	<div class="mt-0.5 mb-2 gap-1 flex flex-col md:flex-row justify-between">
-		<div class="flex md:self-center text-lg font-medium px-0.5">
-			{$i18n.t('Groups')}
-			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
-
-			<span class="text-lg font-medium text-gray-500 dark:text-gray-300">{groups.length}</span>
+	<div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+		<div class="flex items-center gap-3">
+			<h2 class="text-2xl font-semibold text-gray-900 dark:text-white">{$i18n.t('Groups')}</h2>
+			<span class="text-2xl font-semibold text-gray-400 dark:text-gray-500">({groups.length})</span>
 		</div>
 
-		<div class="flex gap-1">
-			<div class=" flex w-full space-x-2">
-				<div class="flex flex-1">
-					<div class=" self-center ml-1 mr-3">
-						<Search />
-					</div>
-					<input
-						class=" w-full text-sm pr-4 py-1 rounded-r-xl outline-hidden bg-transparent"
-						bind:value={search}
-						placeholder={$i18n.t('Search')}
-					/>
+		<div class="flex gap-3 w-full md:w-auto">
+			<div class="relative flex-1 md:w-64">
+				<div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+					<Search className="size-4 text-gray-400" />
 				</div>
-
-				<div>
-					<Tooltip content={$i18n.t('Create Group')}>
-						<button
-							class=" p-2 rounded-xl hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-850 transition font-medium text-sm flex items-center space-x-1"
-							on:click={() => {
-								showAddGroupModal = !showAddGroupModal;
-							}}
-						>
-							<Plus className="size-3.5" />
-						</button>
-					</Tooltip>
-				</div>
+				<input
+					class="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-white dark:bg-gray-850 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent outline-none transition"
+					bind:value={search}
+					placeholder={$i18n.t('Search groups...')}
+				/>
 			</div>
+
+			<button
+				class="px-4 py-2 text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition rounded-lg flex items-center gap-2 whitespace-nowrap"
+				on:click={() => {
+					showAddGroupModal = !showAddGroupModal;
+				}}
+			>
+				<Plus className="size-4" />
+				{$i18n.t('Add Group')}
+			</button>
 		</div>
 	</div>
 
 	<div>
 		{#if filteredGroups.length === 0}
-			<div class="flex flex-col items-center justify-center h-40">
-				<div class=" text-xl font-medium">
+			<div class="flex flex-col items-center justify-center py-16">
+				<div class="text-gray-400 dark:text-gray-600 mb-4">
+					<UsersSolid className="size-16" />
+				</div>
+				<div class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
 					{$i18n.t('Organize your users')}
 				</div>
-
-				<div class="mt-1 text-sm dark:text-gray-300">
+				<div class="text-sm text-gray-500 dark:text-gray-400 mb-6">
 					{$i18n.t('Use groups to group your users and assign permissions.')}
 				</div>
-
-				<div class="mt-3">
-					<button
-						class=" px-4 py-1.5 text-sm rounded-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition font-medium flex items-center space-x-1"
-						aria-label={$i18n.t('Create Group')}
-						on:click={() => {
-							showAddGroupModal = true;
-						}}
-					>
-						{$i18n.t('Create Group')}
-					</button>
-				</div>
+				<button
+					class="px-6 py-2.5 text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition rounded-lg flex items-center gap-2"
+					aria-label={$i18n.t('Create Group')}
+					on:click={() => {
+						showAddGroupModal = true;
+					}}
+				>
+					<Plus className="size-4" />
+					{$i18n.t('Create Group')}
+				</button>
 			</div>
 		{:else}
-			<div>
-				<div class=" flex items-center gap-3 justify-between text-xs uppercase px-1 font-semibold">
-					<div class="w-full basis-3/5">{$i18n.t('Group')}</div>
-
-					<div class="w-full basis-2/5 text-right">{$i18n.t('Users')}</div>
-				</div>
-
-				<hr class="mt-1.5 border-gray-100 dark:border-gray-850" />
-
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				{#each filteredGroups as group}
-					<div class="my-2">
-						<GroupItem {group} {users} {setGroups} {defaultPermissions} />
-					</div>
+					<GroupItem {group} {users} {setGroups} {defaultPermissions} />
 				{/each}
 			</div>
 		{/if}
+	</div>
 
-		<hr class="mb-2 border-gray-100 dark:border-gray-850" />
-
+	<div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
 		<EditGroupModal
 			bind:show={showDefaultPermissionsModal}
 			tabs={['permissions']}
@@ -206,28 +190,30 @@
 		/>
 
 		<button
-			class="flex items-center justify-between rounded-lg w-full transition pt-1"
+			class="flex items-center justify-between w-full p-4 rounded-lg bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-900 border border-gray-200 dark:border-gray-700 transition"
 			on:click={() => {
 				showDefaultPermissionsModal = true;
 			}}
 		>
-			<div class="flex items-center gap-2.5">
-				<div class="p-1.5 bg-black/5 dark:bg-white/10 rounded-full">
-					<UsersSolid className="size-4" />
+			<div class="flex items-center gap-3">
+				<div class="p-2 bg-gray-200 dark:bg-gray-800 rounded-lg">
+					<UsersSolid className="size-5 text-gray-600 dark:text-gray-400" />
 				</div>
-
 				<div class="text-left">
-					<div class=" text-sm font-medium">{$i18n.t('Default permissions')}</div>
-
-					<div class="flex text-xs mt-0.5">
-						{$i18n.t('applies to all users with the "user" role')}
+					<div class="text-sm font-medium text-gray-900 dark:text-white">
+						{$i18n.t('Default Permissions')}
+					</div>
+					<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+						{$i18n.t('Applies to all users with the "user" role')}
 					</div>
 				</div>
 			</div>
-
-			<div>
-				<ChevronRight strokeWidth="2.5" />
+			<div class="text-gray-400">
+				<ChevronRight className="size-5" strokeWidth="2" />
 			</div>
 		</button>
 	</div>
+
+{:else}
+	<SpinnerFull />
 {/if}

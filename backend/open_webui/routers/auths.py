@@ -3,6 +3,9 @@ import uuid
 import time
 import datetime
 import logging
+import secrets
+import string
+import hashlib
 from aiohttp import ClientSession
 
 from open_webui.models.auths import (
@@ -14,12 +17,28 @@ from open_webui.models.auths import (
     SigninForm,
     SigninResponse,
     SignupForm,
+    GuestSigninForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
     UpdatePasswordForm,
     UserResponse,
+    PasswordResetTokens,
 )
 from open_webui.models.users import Users, UpdateProfileForm
 from open_webui.models.groups import Groups
 from open_webui.models.oauth_sessions import OAuthSessions
+from open_webui.models.subscriptions import (
+    SubscriptionPlans,
+    UserSubscriptions,
+    CreateSubscriptionForm,
+)
+from open_webui.utils.email import (
+    EmailService,
+    get_welcome_email_template,
+    get_password_reset_email_template,
+    get_password_reset_link_email_template,
+    get_password_reset_success_email_template,
+)
 
 from open_webui.constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
 from open_webui.env import (
@@ -34,8 +53,20 @@ from open_webui.env import (
     SRC_LOG_LEVELS,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse, Response, JSONResponse
-from open_webui.config import OPENID_PROVIDER_URL, ENABLE_OAUTH_SIGNUP, ENABLE_LDAP
+from fastapi.responses import RedirectResponse, Response, JSONResponse, HTMLResponse
+from open_webui.config import (
+    OPENID_PROVIDER_URL, 
+    ENABLE_OAUTH_SIGNUP, 
+    ENABLE_LDAP,
+    SMTP_HOST,
+    SMTP_PORT,
+    SMTP_USERNAME,
+    SMTP_PASSWORD,
+    SMTP_FROM_EMAIL,
+    SMTP_FROM_NAME,
+    SMTP_USE_TLS,
+    ENABLE_SIGNUP_EMAIL,
+)
 from pydantic import BaseModel
 
 from open_webui.utils.misc import parse_duration, validate_email_format
@@ -64,6 +95,23 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
+
+def generate_random_password(length: int = 12) -> str:
+    """Generate a secure random password"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return password
+
+
+def generate_secret_code(email: str, omd_id: str) -> str:
+    """Generate a deterministic secret code based on email and omdID"""
+    # Create a hash from email and omd_id
+    combined = f"{email.lower()}:{omd_id}"
+    hash_obj = hashlib.sha256(combined.encode())
+    # Return first 16 characters of the hex digest
+    return hash_obj.hexdigest()[:16].upper()
+
+
 ############################
 # GetSessionUser
 ############################
@@ -78,6 +126,12 @@ class SessionUserInfoResponse(SessionUserResponse):
     bio: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[datetime.date] = None
+
+
+class SignupSuccessResponse(BaseModel):
+    success: bool
+    message: str
+    email: str
 
 
 @router.get("/", response_model=SessionUserInfoResponse)
@@ -128,6 +182,7 @@ async def get_session_user(
         "name": user.name,
         "role": user.role,
         "profile_image_url": user.profile_image_url,
+        "user_type": user.user_type if hasattr(user, 'user_type') else "individual",
         "bio": user.bio,
         "gender": user.gender,
         "date_of_birth": user.date_of_birth,
@@ -461,6 +516,556 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
 ############################
 
 
+@router.get("/omd/signup")
+async def omd_signup(
+    request: Request,
+    email: str,
+    omd_id: str,
+    name: Optional[str] = None
+):
+    """
+    OMD_User signup endpoint using query parameters.
+    Generates and returns a secret code for future authentication.
+    
+    Parameters:
+    - email: User's email address
+    - omd_id: User's OMD ID
+    - name: Optional user name (defaults to email if not provided)
+    """
+    if not validate_email_format(email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    # Check if omd_id already exists
+    existing_user_by_omd = Users.get_user_by_omd_id(omd_id)
+    if existing_user_by_omd:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="This OMD ID is already registered. Each OMD ID can only be used once."
+        )
+    
+    # Check if user already exists by email
+    existing_user = Users.get_user_by_email(email.lower())
+    if existing_user:
+        # Check if it's already an OMD_User
+        if existing_user.user_type == "omd":
+            # User exists, return their existing secret code
+            if existing_user.secret_code:
+                return {
+                    "success": True,
+                    "message": "OMD_User already exists",
+                    "email": existing_user.email,
+                    "secret_code": existing_user.secret_code,
+                    "user_id": existing_user.id
+                }
+            else:
+                # User exists but no secret code, generate one
+                secret_code = generate_secret_code(email.lower(), omd_id)
+                updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+                if updated_user:
+                    return {
+                        "success": True,
+                        "message": "Secret code generated for existing OMD_User",
+                        "email": updated_user.email,
+                        "secret_code": secret_code,
+                        "user_id": updated_user.id
+                    }
+                else:
+                    raise HTTPException(500, detail="Failed to generate secret code")
+        else:
+            # Email already registered as different user type
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="This email is already registered with a different account type"
+            )
+    
+    try:
+        # Generate secret code
+        secret_code = generate_secret_code(email.lower(), omd_id)
+        
+        # Generate a random password (won't be used for OMD_User login)
+        temp_password = str(uuid.uuid4())
+        hashed = get_password_hash(temp_password)
+        
+        # Get default role
+        role = request.app.state.config.DEFAULT_USER_ROLE if Users.has_users() else "admin"
+        
+        # Create new OMD_User
+        user = Auths.insert_new_auth(
+            email=email.lower(),
+            password=hashed,
+            name=name or email.lower(),
+            profile_image_url="/user.png",
+            role=role,
+            user_type="omd",
+        )
+        
+        if user:
+            # Update user with secret code
+            updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+            
+            # Also update with omd_id
+            if updated_user:
+                Users.update_user_by_id(user.id, {"omd_id": omd_id})
+            
+            if updated_user:
+                # Add user to OMD group
+                from open_webui.models.groups import Groups
+                try:
+                    all_groups = Groups.get_groups()
+                    omd_group = None
+                    for group in all_groups:
+                        if group.name == "OMD":
+                            omd_group = group
+                            break
+                    
+                    # If OMD group doesn't exist, create it
+                    if not omd_group:
+                        from open_webui.models.groups import GroupForm
+                        group_form = GroupForm(
+                            name="OMD",
+                            description="OMD Users Group",
+                            user_ids=[]
+                        )
+                        omd_group = Groups.insert_new_group(user.id, group_form)
+                        log.info(f"Created OMD group: {omd_group.id}")
+                    
+                    # Add user to the OMD group
+                    if omd_group:
+                        Groups.add_users_to_group(omd_group.id, [user.id])
+                        log.info(f"Added OMD user {user.id} to OMD group")
+                except Exception as e:
+                    log.error(f"Error adding OMD user to group: {str(e)}")
+                
+                return {
+                    "success": True,
+                    "message": "OMD_User created successfully",
+                    "email": updated_user.email,
+                    "secret_code": secret_code,
+                    "user_id": updated_user.id
+                }
+            else:
+                raise HTTPException(500, detail="Failed to set secret code")
+        else:
+            raise HTTPException(500, detail="Failed to create OMD_User")
+    
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"OMD signup error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during OMD signup")
+
+
+@router.get("/omd/signin")
+async def omd_signin(
+    request: Request,
+    response: Response,
+    email: str,
+    secret_code: Optional[str] = None
+):
+    """
+    OMD_User signin endpoint using query parameters.
+    
+    Parameters:
+    - email: User's email address
+    - secret_code: Optional secret code for authentication
+    
+    If email exists and is OMD_User:
+    - With secret_code: Validates and signs in if match
+    - Without secret_code: Generates new secret code and returns it
+    """
+    # Check if this is a browser request (wants HTML) or API request (wants JSON)
+    accept_header = request.headers.get("accept", "")
+    is_browser_request = "text/html" in accept_header
+    
+    if not validate_email_format(email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    try:
+        # Get user by email
+        user = Users.get_user_by_email(email.lower())
+        
+        if not user:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                detail="User not found. Please signup first."
+            )
+        
+        # Check if user is OMD_User
+        if user.user_type != "omd":
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="This email is registered with a different account type. Please use regular signin."
+            )
+        
+        # If secret_code is provided, validate it
+        if secret_code:
+            if user.secret_code and user.secret_code == secret_code:
+                # Secret code matches, proceed with signin
+                expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+                expires_at = None
+                if expires_delta:
+                    expires_at = int(time.time()) + int(expires_delta.total_seconds())
+                
+                token = create_token(
+                    data={"id": user.id},
+                    expires_delta=expires_delta,
+                )
+                
+                datetime_expires_at = (
+                    datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                    if expires_at
+                    else None
+                )
+                
+                # Set the cookie token
+                response.set_cookie(
+                    key="token",
+                    value=token,
+                    expires=datetime_expires_at,
+                    httponly=True,
+                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                    secure=WEBUI_AUTH_COOKIE_SECURE,
+                )
+                
+                user_permissions = get_permissions(
+                    user.id, request.app.state.config.USER_PERMISSIONS
+                )
+                
+                # For browser requests, return HTML that sets up session and redirects
+                if is_browser_request:
+                    user_data = {
+                        "token": token,
+                        "token_type": "Bearer",
+                        "expires_at": expires_at,
+                        "id": user.id,
+                        "email": user.email,
+                        "name": user.name,
+                        "role": user.role,
+                        "profile_image_url": user.profile_image_url,
+                        "user_type": "omd",
+                        "permissions": user_permissions,
+                    }
+                    
+                    import json
+                    user_json = json.dumps(user_data)
+                    
+                    html_content = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Signing in...</title>
+                        <script>
+                            // Set session data
+                            const userData = {user_json};
+                            sessionStorage.setItem('token', userData.token);
+                            localStorage.setItem('token', userData.token);
+                            
+                            // Redirect to dashboard
+                            window.location.href = '/';
+                        </script>
+                    </head>
+                    <body>
+                        <p>Signing in... Please wait.</p>
+                    </body>
+                    </html>
+                    """
+                    
+                    html_response = HTMLResponse(content=html_content, status_code=200)
+                    html_response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    return html_response
+                
+                # For API requests, return JSON
+                response.set_cookie(
+                    key="token",
+                    value=token,
+                    expires=datetime_expires_at,
+                    httponly=True,
+                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                    secure=WEBUI_AUTH_COOKIE_SECURE,
+                )
+                
+                return {
+                    "token": token,
+                    "token_type": "Bearer",
+                    "expires_at": expires_at,
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role,
+                    "profile_image_url": user.profile_image_url,
+                    "user_type": "omd",
+                    "permissions": user_permissions,
+                }
+            else:
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid secret code"
+                )
+        else:
+            # No secret_code provided, check if user has one
+            if user.secret_code:
+                # User has secret code but didn't provide it
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Secret code required for signin"
+                )
+            else:
+                # User has no secret code, generate one and return it
+                # Generate secret code based on email and a random value
+                random_suffix = secrets.token_hex(8)
+                secret_code = generate_secret_code(email.lower(), random_suffix)
+                
+                updated_user = Users.update_user_secret_code(email.lower(), secret_code)
+                
+                if updated_user:
+                    # Auto-signin after generating secret code
+                    expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+                    expires_at = None
+                    if expires_delta:
+                        expires_at = int(time.time()) + int(expires_delta.total_seconds())
+                    
+                    token = create_token(
+                        data={"id": updated_user.id},
+                        expires_delta=expires_delta,
+                    )
+                    
+                    datetime_expires_at = (
+                        datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                        if expires_at
+                        else None
+                    )
+                    
+                    # Set the cookie token
+                    response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    
+                    user_permissions = get_permissions(
+                        updated_user.id, request.app.state.config.USER_PERMISSIONS
+                    )
+                    
+                    # For browser requests, return HTML that sets up session and redirects
+                    if is_browser_request:
+                        user_data = {
+                            "token": token,
+                            "token_type": "Bearer",
+                            "expires_at": expires_at,
+                            "id": updated_user.id,
+                            "email": updated_user.email,
+                            "name": updated_user.name,
+                            "role": updated_user.role,
+                            "profile_image_url": updated_user.profile_image_url,
+                            "user_type": "omd",
+                            "permissions": user_permissions,
+                        }
+                        
+                        import json
+                        user_json = json.dumps(user_data)
+                        
+                        html_content = f"""
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Signing in...</title>
+                            <script>
+                                // Set session data
+                                const userData = {user_json};
+                                sessionStorage.setItem('token', userData.token);
+                                localStorage.setItem('token', userData.token);
+                                
+                                // Redirect to dashboard
+                                window.location.href = '/';
+                            </script>
+                        </head>
+                        <body>
+                            <p>Signing in... Please wait.</p>
+                        </body>
+                        </html>
+                        """
+                        
+                        html_response = HTMLResponse(content=html_content, status_code=200)
+                        html_response.set_cookie(
+                            key="token",
+                            value=token,
+                            expires=datetime_expires_at,
+                            httponly=True,
+                            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                            secure=WEBUI_AUTH_COOKIE_SECURE,
+                        )
+                        return html_response
+                    
+                    # For API requests, return JSON
+                    response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=datetime_expires_at,
+                        httponly=True,
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
+                    
+                    return {
+                        "token": token,
+                        "token_type": "Bearer",
+                        "expires_at": expires_at,
+                        "id": updated_user.id,
+                        "email": updated_user.email,
+                        "name": updated_user.name,
+                        "role": updated_user.role,
+                        "profile_image_url": updated_user.profile_image_url,
+                        "user_type": "omd",
+                        "permissions": user_permissions,
+                    }
+                else:
+                    raise HTTPException(500, detail="Failed to generate secret code")
+    
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"OMD signin error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during OMD signin")
+
+
+@router.post("/guest", response_model=SessionUserResponse)
+async def guest_signin(request: Request, response: Response, form_data: GuestSigninForm):
+    """
+    Create a temporary guest session that expires when browser closes.
+    No password required, just name and email.
+    """
+    
+    if not validate_email_format(form_data.email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    try:
+        # Check if this email already has a guest account
+        existing_user = Users.get_user_by_email(form_data.email.lower())
+        
+        if existing_user:
+            # Check if it's a guest account
+            if existing_user.user_type == "guest":
+                # Reuse existing guest account
+                user = existing_user
+                log.info(f"Reusing existing guest account for {form_data.email.lower()}")
+            else:
+                # Email already registered as regular user
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, 
+                    detail="This email is already registered. Please sign in with your password or use a different email for guest access."
+                )
+        else:
+            # Create a new guest account
+            # Generate a unique guest ID with timestamp
+            guest_id = f"guest_{int(time.time())}_{str(uuid.uuid4())[:8]}"
+            
+            # Create a temporary password (won't be used by guest)
+            temp_password = str(uuid.uuid4())
+            hashed = get_password_hash(temp_password)
+            
+            # Create a temporary guest user with 'user' role
+            user = Auths.insert_new_auth(
+                email=form_data.email.lower(),
+                password=hashed,
+                name=form_data.name,
+                profile_image_url="/user.png",
+                role="user",  # User role - permissions managed via Guests group
+                user_type="guest",
+            )
+            
+            # Add user to Guests group if it exists
+            if user:
+                from open_webui.models.groups import Groups
+                try:
+                    all_groups = Groups.get_groups()
+                    for group in all_groups:
+                        if group.name == "Guests":
+                            Groups.add_users_to_group(group.id, [user.id])
+                            log.info(f"Added guest user {user.id} to Guests group")
+                            break
+                except Exception as e:
+                    log.error(f"Error adding guest to group: {str(e)}")
+        
+        if user:
+            # Create a short-lived token (expires in 24 hours)
+            # Session storage will handle browser close cleanup
+            expires_delta = parse_duration("24h")
+            expires_at = None
+            if expires_delta:
+                expires_at = int(time.time()) + int(expires_delta.total_seconds())
+            
+            token = create_token(
+                data={"id": user.id, "guest": True},
+                expires_delta=expires_delta,
+            )
+            
+            datetime_expires_at = (
+                datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                if expires_at
+                else None
+            )
+            
+            # Set cookie with session-only expiry (no expires parameter)
+            # This ensures cookie is deleted when browser closes
+            response.set_cookie(
+                key="token",
+                value=token,
+                httponly=True,
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
+            
+            # Mark as guest session
+            response.set_cookie(
+                key="guest_session",
+                value="true",
+                httponly=True,
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
+            
+            user_permissions = get_permissions(
+                user.id, request.app.state.config.USER_PERMISSIONS
+            )
+            
+            return {
+                "token": token,
+                "token_type": "Bearer",
+                "expires_at": expires_at,
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "role": user.role,
+                "profile_image_url": user.profile_image_url,
+                "user_type": "guest",
+                "permissions": user_permissions,
+            }
+        else:
+            raise HTTPException(500, detail="Failed to create guest session")
+            
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.error(f"Guest signin error: {str(err)}")
+        raise HTTPException(500, detail="An internal error occurred during guest signin.")
+
+
 @router.post("/signin", response_model=SessionUserResponse)
 async def signin(request: Request, response: Response, form_data: SigninForm):
     if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
@@ -508,15 +1113,6 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
 
             user = Auths.authenticate_user(admin_email.lower(), admin_password)
     else:
-        password_bytes = form_data.password.encode("utf-8")
-        if len(password_bytes) > 72:
-            # TODO: Implement other hashing algorithms that support longer passwords
-            log.info("Password too long, truncating to 72 bytes for bcrypt")
-            password_bytes = password_bytes[:72]
-
-            # decode safely — ignore incomplete UTF-8 sequences
-            form_data.password = password_bytes.decode("utf-8", errors="ignore")
-
         user = Auths.authenticate_user(form_data.email.lower(), form_data.password)
 
     if user:
@@ -560,6 +1156,7 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             "name": user.name,
             "role": user.role,
             "profile_image_url": user.profile_image_url,
+            "user_type": user.user_type if hasattr(user, 'user_type') else "individual",
             "permissions": user_permissions,
         }
     else:
@@ -567,11 +1164,188 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
 
 
 ############################
+# Forgot Password
+############################
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request, form_data: ForgotPasswordForm):
+    """
+    Send password reset link to user.
+    Does NOT allow guest users or OND users to reset password.
+    """
+    try:
+        email = form_data.email.lower()
+        
+        # Check if user exists
+        user = Users.get_user_by_email(email)
+        if not user:
+            # Return success even if user doesn't exist (security best practice)
+            return {"success": True, "message": "If the email exists, a password reset link has been sent."}
+        
+        # Check if user is a guest user
+        if hasattr(user, 'user_type') and user.user_type == "guest":
+            raise HTTPException(
+                status_code=403,
+                detail="Guest users cannot reset passwords. Please contact support."
+            )
+        
+        # Check if user is an OND user (has omd_id)
+        if hasattr(user, 'omd_id') and user.omd_id:
+            raise HTTPException(
+                status_code=403,
+                detail="OND users cannot reset passwords through this method. Please contact support."
+            )
+        
+        # Check if SMTP is configured
+        smtp_host = SMTP_HOST.value if hasattr(SMTP_HOST, 'value') else SMTP_HOST
+        smtp_port = SMTP_PORT.value if hasattr(SMTP_PORT, 'value') else SMTP_PORT
+        smtp_username = SMTP_USERNAME.value if hasattr(SMTP_USERNAME, 'value') else SMTP_USERNAME
+        smtp_password = SMTP_PASSWORD.value if hasattr(SMTP_PASSWORD, 'value') else SMTP_PASSWORD
+        smtp_from_email = SMTP_FROM_EMAIL.value if hasattr(SMTP_FROM_EMAIL, 'value') else SMTP_FROM_EMAIL
+        smtp_from_name = SMTP_FROM_NAME.value if hasattr(SMTP_FROM_NAME, 'value') else SMTP_FROM_NAME or "OptimalMD"
+        smtp_use_tls = SMTP_USE_TLS.value if hasattr(SMTP_USE_TLS, 'value') else SMTP_USE_TLS
+        
+        if not all([smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email]):
+            log.error("SMTP is not configured properly")
+            raise HTTPException(
+                status_code=503,
+                detail="Email service is not configured. Please contact support."
+            )
+        
+        # Create password reset token
+        reset_token = PasswordResetTokens.create_token(user.id, email)
+        if not reset_token:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create reset token. Please try again."
+            )
+        
+        # Create reset link
+        base_url = str(request.base_url).rstrip('/')
+        reset_link = f"{base_url}/auth/reset-password?token={reset_token.token}"
+        
+        # Send password reset email
+        email_service = EmailService(
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_username=smtp_username,
+            smtp_password=smtp_password,
+            from_email=smtp_from_email,
+            from_name=smtp_from_name,
+            use_tls=smtp_use_tls
+        )
+        
+        html_content = get_password_reset_link_email_template(user.name, reset_link)
+        email_sent = email_service.send_email(
+            to_email=email,
+            subject="Reset Your Password - OptimalMD",
+            html_content=html_content
+        )
+        
+        if not email_sent:
+            log.error(f"Failed to send password reset email to {email}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send reset email. Please try again or contact support."
+            )
+        
+        log.info(f"Password reset link sent successfully to {email}")
+        return {"success": True, "message": "Password reset link sent to your email."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Forgot password error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing your request."
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(form_data: ResetPasswordForm):
+    """
+    Reset password using a valid token.
+    Token must be valid, not expired, and not already used.
+    """
+    try:
+        # Validate token
+        reset_token = PasswordResetTokens.get_valid_token(form_data.token)
+        if not reset_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or expired reset link. Please request a new one."
+            )
+        
+        # Get user
+        user = Users.get_user_by_id(reset_token.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found."
+            )
+        
+        # Hash new password
+        hashed_password = get_password_hash(form_data.new_password)
+        
+        # Update password
+        success = Auths.update_user_password_by_id(user.id, hashed_password)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update password. Please try again."
+            )
+        
+        # Mark token as used
+        PasswordResetTokens.mark_token_as_used(form_data.token)
+        
+        # Send success confirmation email
+        smtp_host = SMTP_HOST.value if hasattr(SMTP_HOST, 'value') else SMTP_HOST
+        smtp_port = SMTP_PORT.value if hasattr(SMTP_PORT, 'value') else SMTP_PORT
+        smtp_username = SMTP_USERNAME.value if hasattr(SMTP_USERNAME, 'value') else SMTP_USERNAME
+        smtp_password = SMTP_PASSWORD.value if hasattr(SMTP_PASSWORD, 'value') else SMTP_PASSWORD
+        smtp_from_email = SMTP_FROM_EMAIL.value if hasattr(SMTP_FROM_EMAIL, 'value') else SMTP_FROM_EMAIL
+        smtp_from_name = SMTP_FROM_NAME.value if hasattr(SMTP_FROM_NAME, 'value') else SMTP_FROM_NAME or "OptimalMD"
+        smtp_use_tls = SMTP_USE_TLS.value if hasattr(SMTP_USE_TLS, 'value') else SMTP_USE_TLS
+        
+        if all([smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email]):
+            email_service = EmailService(
+                smtp_host=smtp_host,
+                smtp_port=smtp_port,
+                smtp_username=smtp_username,
+                smtp_password=smtp_password,
+                from_email=smtp_from_email,
+                from_name=smtp_from_name,
+                use_tls=smtp_use_tls
+            )
+            
+            html_content = get_password_reset_success_email_template(user.name)
+            email_service.send_email(
+                to_email=user.email,
+                subject="Password Reset Successful - OptimalMD",
+                html_content=html_content
+            )
+        
+        log.info(f"Password reset successful for user {user.id}")
+        return {"success": True, "message": "Password reset successful. You can now sign in with your new password."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Reset password error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while resetting your password."
+        )
+
+
+############################
 # SignUp
 ############################
 
 
-@router.post("/signup", response_model=SessionUserResponse)
+@router.post("/signup")
 async def signup(request: Request, response: Response, form_data: SignupForm):
     has_users = Users.has_users()
 
@@ -595,29 +1369,88 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
         )
 
-    if Users.get_user_by_email(form_data.email.lower()):
-        raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
+    existing_user = Users.get_user_by_email(form_data.email.lower())
+    
+    # Check if email exists
+    if existing_user:
+        # If it's a guest account, delete it first to allow normal signup
+        if existing_user.user_type == "guest":
+            log.info(f"Deleting guest account to allow signup: {form_data.email.lower()}")
+            # Delete the guest account - user will go through normal signup process
+            Auths.delete_auth_by_id(existing_user.id)
+        else:
+            # Regular account already exists
+            raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
         role = "admin" if not has_users else request.app.state.config.DEFAULT_USER_ROLE
 
-        # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
-        if len(form_data.password.encode("utf-8")) > 72:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.PASSWORD_TOO_LONG,
-            )
-
-        hashed = get_password_hash(form_data.password)
+        # Generate a random temporary password if email signup is enabled
+        if ENABLE_SIGNUP_EMAIL.value and has_users:
+            # Generate random password for new users (not the first admin)
+            temp_password = generate_random_password(12)
+            hashed = get_password_hash(temp_password)
+        else:
+            # For the first admin user, use the provided password
+            # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
+            if len(form_data.password.encode("utf-8")) > 72:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail=ERROR_MESSAGES.PASSWORD_TOO_LONG,
+                )
+            temp_password = form_data.password
+            hashed = get_password_hash(form_data.password)
+        
+        # Check if subscription plan is required and valid
+        subscription = None
+        if form_data.plan_id:
+            plan = SubscriptionPlans.get_plan_by_id(form_data.plan_id)
+            if not plan:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    detail="Invalid subscription plan",
+                )
+        
         user = Auths.insert_new_auth(
             form_data.email.lower(),
             hashed,
             form_data.name,
             form_data.profile_image_url,
             role,
+            dob=form_data.dob,
+            phone=form_data.phone,
+            user_type=form_data.user_type if hasattr(form_data, "user_type") else "individual",
         )
 
         if user:
+            # Create subscription if plan_id is provided
+            if form_data.plan_id:
+                subscription_form = CreateSubscriptionForm(
+                    plan_id=form_data.plan_id,
+                    payment_id=form_data.payment_id,
+                    payment_method="stripe",  # Default payment method
+                )
+                subscription = UserSubscriptions.create_subscription(
+                    user.id, subscription_form
+                )
+                
+                # Update user with subscription info
+                Users.update_user_by_id(
+                    user.id,
+                    {
+                        "subscription_id": subscription.id if subscription else None,
+                        "subscription_status": subscription.status if subscription else None,
+                    },
+                )
+                
+                # Add user to the plan's users array
+                plan = SubscriptionPlans.get_plan_by_id(form_data.plan_id)
+                if plan:
+                    SubscriptionPlans.add_user_to_plan(plan.id, user.id)
+                    
+                    # Add user to the plan's group to grant model access
+                    if plan.group:
+                        Groups.add_users_to_group(plan.group, [user.id])
             expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
             expires_at = None
             if expires_delta:
@@ -661,19 +1494,63 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             )
 
             if not has_users:
-                # Disable signup after the first user is created
+                # Disable signup after the first user is created (first admin)
                 request.app.state.config.ENABLE_SIGNUP = False
-
+                
+                # For first admin user, auto-login with token
+                return {
+                    "token": token,
+                    "token_type": "Bearer",
+                    "expires_at": expires_at,
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.name,
+                    "role": user.role,
+                    "profile_image_url": user.profile_image_url,
+                    "permissions": user_permissions,
+                }
+            
+            # For non-admin users, send email with password
+            if ENABLE_SIGNUP_EMAIL.value:
+                try:
+                    # Initialize email service
+                    email_service = EmailService(
+                        smtp_host=SMTP_HOST.value,
+                        smtp_port=SMTP_PORT.value,
+                        smtp_username=SMTP_USERNAME.value,
+                        smtp_password=SMTP_PASSWORD.value,
+                        from_email=SMTP_FROM_EMAIL.value,
+                        from_name=SMTP_FROM_NAME.value,
+                        use_tls=SMTP_USE_TLS.value,
+                    )
+                    
+                    # Generate email template
+                    html_content = get_welcome_email_template(
+                        user_name=user.name,
+                        user_email=user.email,
+                        password=temp_password
+                    )
+                    
+                    # Send email
+                    email_sent = email_service.send_email(
+                        to_email=user.email,
+                        subject="Welcome to OptimalMD - Your Account Credentials",
+                        html_content=html_content
+                    )
+                    
+                    if not email_sent:
+                        log.error(f"Failed to send welcome email to {user.email}")
+                        # Continue anyway, user can reset password later
+                
+                except Exception as email_err:
+                    log.error(f"Error sending welcome email: {str(email_err)}")
+                    # Continue anyway, user can reset password later
+            
+            # Return success message instead of auto-login
             return {
-                "token": token,
-                "token_type": "Bearer",
-                "expires_at": expires_at,
-                "id": user.id,
-                "email": user.email,
-                "name": user.name,
-                "role": user.role,
-                "profile_image_url": user.profile_image_url,
-                "permissions": user_permissions,
+                "success": True,
+                "message": "Account created successfully. Please check your email for your temporary password.",
+                "email": user.email
             }
         else:
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
@@ -1079,3 +1956,181 @@ async def get_api_key(user=Depends(get_current_user)):
         }
     else:
         raise HTTPException(404, detail=ERROR_MESSAGES.API_KEY_NOT_FOUND)
+
+
+############################
+# OrganizationSignup
+############################
+
+
+@router.post("/signup/org/{org_code}")
+async def organization_signup(
+    request: Request, response: Response, org_code: str, form_data: SignupForm
+):
+    """Signup for a specific organization"""
+    from open_webui.models.organizations import Organizations
+    
+    # Get organization
+    organization = Organizations.get_organization_by_code(org_code)
+    if not organization:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    if not organization.signup_enabled or organization.status != "active":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Signup is not available for this organization"
+        )
+    
+    # Check if signups are allowed
+    if WEBUI_AUTH:
+        if not request.app.state.config.ENABLE_SIGNUP or not request.app.state.config.ENABLE_LOGIN_FORM:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
+            )
+    
+    if not validate_email_format(form_data.email.lower()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
+        )
+    
+    if Users.get_user_by_email(form_data.email.lower()):
+        raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
+    
+    try:
+        role = request.app.state.config.DEFAULT_USER_ROLE
+        
+        # Validate plan_id is in organization's plans if provided
+        if form_data.plan_id:
+            if not organization.plans or form_data.plan_id not in organization.plans:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid subscription plan for this organization"
+                )
+            
+            plan = SubscriptionPlans.get_plan_by_id(form_data.plan_id)
+            if not plan:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    detail="Subscription plan not found"
+                )
+        
+        # Generate a random temporary password if email signup is enabled
+        if ENABLE_SIGNUP_EMAIL.value:
+            temp_password = generate_random_password(12)
+            hashed = get_password_hash(temp_password)
+        else:
+            if len(form_data.password.encode("utf-8")) > 72:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    detail=ERROR_MESSAGES.PASSWORD_TOO_LONG,
+                )
+            temp_password = form_data.password
+            hashed = get_password_hash(form_data.password)
+        
+        user = Auths.insert_new_auth(
+            form_data.email.lower(),
+            hashed,
+            form_data.name,
+            form_data.profile_image_url,
+            role,
+            dob=form_data.dob,
+            phone=form_data.phone,
+            user_type="org",
+            organization_id=organization.id,  # Set the user's organization
+        )
+        
+        if user:
+            # Add user to organization
+            Organizations.add_users_to_organization(organization.id, [user.id])
+            
+            # Create subscription and add to group if plan_id is provided
+            if form_data.plan_id:
+                subscription_form = CreateSubscriptionForm(
+                    plan_id=form_data.plan_id,
+                    payment_id=form_data.payment_id,
+                    payment_method="stripe",
+                )
+                subscription = UserSubscriptions.create_subscription(user.id, subscription_form)
+                
+                # Update user with subscription info
+                Users.update_user_by_id(
+                    user.id,
+                    {
+                        "subscription_id": subscription.id if subscription else None,
+                        "subscription_status": subscription.status if subscription else None,
+                    },
+                )
+                
+                # Add user to the plan's users array
+                plan = SubscriptionPlans.get_plan_by_id(form_data.plan_id)
+                if plan:
+                    SubscriptionPlans.add_user_to_plan(plan.id, user.id)
+                    
+                    # Add user to the plan's group to grant model access
+                    if plan.group:
+                        Groups.add_users_to_group(plan.group, [user.id])
+            
+            # Send welcome email with temporary password
+            if ENABLE_SIGNUP_EMAIL.value:
+                try:
+                    # Initialize email service
+                    email_service = EmailService(
+                        smtp_host=SMTP_HOST.value,
+                        smtp_port=SMTP_PORT.value,
+                        smtp_username=SMTP_USERNAME.value,
+                        smtp_password=SMTP_PASSWORD.value,
+                        from_email=SMTP_FROM_EMAIL.value,
+                        from_name=SMTP_FROM_NAME.value,
+                        use_tls=SMTP_USE_TLS.value,
+                    )
+                    
+                    # Generate email template
+                    html_content = get_welcome_email_template(
+                        user_name=user.name,
+                        user_email=user.email,
+                        password=temp_password
+                    )
+                    
+                    # Send email
+                    email_sent = email_service.send_email(
+                        to_email=user.email,
+                        subject=f"Welcome to {organization.org_name} - Your Account Credentials",
+                        html_content=html_content
+                    )
+                    
+                    if not email_sent:
+                        log.error(f"Failed to send welcome email to {user.email}")
+                        # Continue anyway, user can reset password later
+                
+                except Exception as email_err:
+                    log.error(f"Error sending welcome email: {str(email_err)}")
+                    # Continue anyway, user can reset password later
+            
+            # Post webhook if configured
+            if request.app.state.config.WEBHOOK_URL:
+                await post_webhook(
+                    request.app.state.WEBUI_NAME,
+                    request.app.state.config.WEBHOOK_URL,
+                    WEBHOOK_MESSAGES.USER_SIGNUP(user.name),
+                    {
+                        "action": "signup",
+                        "message": WEBHOOK_MESSAGES.USER_SIGNUP(user.name),
+                        "user": user.model_dump_json(exclude_none=True),
+                        "organization": organization.org_name,
+                    },
+                )
+            
+            # Return success message instead of auto-login (follow normal signup flow)
+            return {
+                "success": True,
+                "message": "Account created successfully. Please check your email for your temporary password.",
+                "email": user.email
+            }
+    except HTTPException:
+        raise
+    except Exception as err:
+        log.exception(f"Error during organization signup: {err}")
+        raise HTTPException(500, detail=ERROR_MESSAGES.DEFAULT(err))

@@ -32,8 +32,8 @@
 			? 'md:max-w-[calc(100%-260px)]'
 			: ' md:max-w-[calc(100%-49px)]'}  w-full max-w-full"
 	>
-		<nav class="   px-2.5 pt-1.5 backdrop-blur-xl drag-region">
-			<div class=" flex items-center gap-1">
+		<nav class="px-4 pt-4 pb-2 backdrop-blur-xl drag-region border-b border-gray-200 dark:border-gray-800 lg:mb-2">
+			<div class="flex items-center gap-1">
 				{#if $mobile}
 					<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center self-end">
 						<Tooltip
@@ -42,12 +42,12 @@
 						>
 							<button
 								id="sidebar-toggle-button"
-								class=" cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition cursor-"
+								class="cursor-pointer flex rounded-lg hover:bg-gray-100 dark:hover:bg-gray-850 transition"
 								on:click={() => {
 									showSidebar.set(!$showSidebar);
 								}}
 							>
-								<div class=" self-center p-1.5">
+								<div class="self-center p-1.5">
 									<Sidebar />
 								</div>
 							</button>
@@ -55,42 +55,33 @@
 					</div>
 				{/if}
 
-				<div class=" flex w-full">
-					<div
-						class="flex gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-full bg-transparent pt-1"
-					>
+				<div class="flex w-full">
+					<div class="flex gap-1 scrollbar-none overflow-x-auto w-fit bg-gray-100 dark:bg-gray-850 rounded-lg p-1">
 						<a
-							class="min-w-fit p-1.5 {$page.url.pathname.includes('/admin/users')
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="min-w-fit px-4 py-2 rounded-md text-sm font-medium transition {$page.url.pathname.includes('/admin/users')
+								? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+								: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 							href="/admin">{$i18n.t('Users')}</a
 						>
 
-						<!-- <a
-							class="min-w-fit p-1.5 {$page.url.pathname.includes('/admin/analytics')
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-							href="/admin/analytics">{$i18n.t('Analytics')}</a
-						> -->
-
 						<a
-							class="min-w-fit p-1.5 {$page.url.pathname.includes('/admin/evaluations')
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="min-w-fit px-4 py-2 rounded-md text-sm font-medium transition {$page.url.pathname.includes('/admin/evaluations')
+								? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+								: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 							href="/admin/evaluations">{$i18n.t('Evaluations')}</a
 						>
 
 						<a
-							class="min-w-fit p-1.5 {$page.url.pathname.includes('/admin/functions')
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="min-w-fit px-4 py-2 rounded-md text-sm font-medium transition {$page.url.pathname.includes('/admin/functions')
+								? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+								: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 							href="/admin/functions">{$i18n.t('Functions')}</a
 						>
 
 						<a
-							class="min-w-fit p-1.5 {$page.url.pathname.includes('/admin/settings')
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="min-w-fit px-4 py-2 rounded-md text-sm font-medium transition {$page.url.pathname.includes('/admin/settings')
+								? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+								: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 							href="/admin/settings">{$i18n.t('Settings')}</a
 						>
 					</div>

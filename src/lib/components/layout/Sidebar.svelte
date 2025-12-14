@@ -25,7 +25,8 @@
 		isApp,
 		models,
 		selectedFolder,
-		WEBUI_NAME
+		WEBUI_NAME,
+		theme
 	} from '$lib/stores';
 	import { onMount, getContext, tick, onDestroy } from 'svelte';
 
@@ -683,7 +684,7 @@
 		<div>
 			<div>
 				<div class=" py-0.5">
-					{#if $user !== undefined && $user !== null}
+					{#if $user !== undefined && $user !== null && $user?.user_type !== 'guest'}
 						<UserMenu
 							role={$user?.role}
 							on:show={(e) => {
@@ -731,22 +732,21 @@
 				: 'invisible'}"
 		>
 			<div
-				class="sidebar px-2 pt-2 pb-1.5 flex justify-between space-x-1 text-gray-600 dark:text-gray-400 sticky top-0 z-10 -mb-3"
+				class="sidebar px-2 pt-2 pb-1.5 flex {$showSidebar ? 'justify-center items-center' : 'justify-between'} space-x-1 text-gray-600 dark:text-gray-400 sticky top-0 z-10 -mb-3"
 			>
-				<a
-					class="flex items-center rounded-xl size-8.5 h-full justify-center hover:bg-gray-100/50 dark:hover:bg-gray-850/50 transition no-drag-region"
-					href="/"
-					draggable="false"
-					on:click={newChatHandler}
-				>
-					<img
-						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/favicon.png"
-						class="sidebar-new-chat-icon size-6 rounded-full"
-						alt=""
-					/>
-				</a>
-
+			<a
+				class="flex items-center rounded-xl {$showSidebar ? 'w-full h-20' : 'size-8.5'} h-full justify-center hover:bg-gray-100/50 dark:hover:bg-gray-850/50 transition no-drag-region"
+				href="/"
+				draggable="false"
+				on:click={newChatHandler}
+			>
+				<img
+					crossorigin="anonymous"
+					src="{WEBUI_BASE_URL}/static/{$showSidebar ? ($theme === 'dark' || ($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'logo-slogan-light.svg' : 'logo-slogan-dark.svg') : 'favicon.png'}"
+					class="sidebar-new-chat-icon {$showSidebar ? 'w-full h-full object-contain py-1 px-2' : 'size-6 rounded-full'}"
+					alt=""
+				/>
+			</a>				{#if !$showSidebar}
 				<a href="/" class="flex flex-1 px-1.5" on:click={newChatHandler}>
 					<div
 						id="sidebar-webui-name"
@@ -755,6 +755,8 @@
 						{$WEBUI_NAME}
 					</div>
 				</a>
+				{/if}
+				{#if !$showSidebar}
 				<Tooltip
 					content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 					placement="bottom"
@@ -773,6 +775,7 @@
 						</div>
 					</button>
 				</Tooltip>
+				{/if}
 
 				<div
 					class="{scrollTop > 0
@@ -792,7 +795,7 @@
 				}}
 			>
 				<div class="pb-1.5">
-					<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
+					<div class="px-[7px] flex justify-between items-center text-gray-800 dark:text-gray-200">
 						<a
 							id="sidebar-new-chat-button"
 							class="group grow flex items-center space-x-3 rounded-2xl px-2.5 py-2 hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
@@ -809,8 +812,28 @@
 								<div class=" self-center text-sm font-primary">{$i18n.t('New Chat')}</div>
 							</div>
 
-							<HotkeyHint name="newChat" className=" group-hover:visible invisible" />
+							<HotkeyHint name="newChat" className="group-hover:visible invisible" />
 						</a>
+						{#if $showSidebar}
+						<Tooltip
+							content={$i18n.t('Close Sidebar')}
+							placement="bottom"
+						>
+							<button
+								class="flex rounded-xl size-8.5 justify-center items-center hover:bg-gray-100/50 dark:hover:bg-gray-850/50 transition {isWindows
+									? 'cursor-pointer'
+									: 'cursor-[w-resize]'}"
+								on:click={() => {
+									showSidebar.set(!$showSidebar);
+								}}
+								aria-label={$i18n.t('Close Sidebar')}
+							>
+								<div class="self-center p-1.5">
+									<Sidebar />
+								</div>
+							</button>
+						</Tooltip>
+						{/if}
 					</div>
 
 					<div class="px-[7px] flex justify-center text-gray-800 dark:text-gray-200">
@@ -1222,7 +1245,7 @@
 					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
 				></div>
 				<div class="flex flex-col font-primary">
-					{#if $user !== undefined && $user !== null}
+					{#if $user !== undefined && $user !== null && $user?.user_type !== 'guest'}
 						<UserMenu
 							role={$user?.role}
 							on:show={(e) => {

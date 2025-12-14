@@ -36,17 +36,29 @@ class User(Base):
     bio = Column(Text, nullable=True)
     gender = Column(Text, nullable=True)
     date_of_birth = Column(Date, nullable=True)
+    phone = Column(String(20), nullable=True)
 
     info = Column(JSONField, nullable=True)
     settings = Column(JSONField, nullable=True)
 
     api_key = Column(String, nullable=True, unique=True)
     oauth_sub = Column(Text, unique=True)
+    secret_code = Column(String, nullable=True)  # For OMD_User authentication
+    omd_id = Column(String, nullable=True, unique=True)  # For OMD_User unique identification
+
+    # Subscription fields
+    subscription_id = Column(String, nullable=True)
+    subscription_status = Column(String, nullable=True)  # pending, active, expired, cancelled
+
+    # Organization field
+    organization_id = Column(String, nullable=True)
 
     last_active_at = Column(BigInteger)
 
     updated_at = Column(BigInteger)
     created_at = Column(BigInteger)
+
+    user_type = Column(String(20), nullable=True)
 
 
 class UserSettings(BaseModel):
@@ -68,16 +80,28 @@ class UserModel(BaseModel):
     bio: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[datetime.date] = None
+    phone: Optional[str] = None
 
     info: Optional[dict] = None
     settings: Optional[UserSettings] = None
 
     api_key: Optional[str] = None
     oauth_sub: Optional[str] = None
+    secret_code: Optional[str] = None  # For OMD_User authentication
+    omd_id: Optional[str] = None  # For OMD_User unique identification
+
+    # Subscription fields
+    subscription_id: Optional[str] = None
+    subscription_status: Optional[str] = None
+
+    # Organization field
+    organization_id: Optional[str] = None
 
     last_active_at: int  # timestamp in epoch
     updated_at: int  # timestamp in epoch
     created_at: int  # timestamp in epoch
+
+    user_type: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,6 +117,7 @@ class UpdateProfileForm(BaseModel):
     bio: Optional[str] = None
     gender: Optional[str] = None
     date_of_birth: Optional[datetime.date] = None
+    phone: Optional[str] = None
 
 
 class UserListResponse(BaseModel):
@@ -212,6 +237,35 @@ class UsersTable:
             with get_db() as db:
                 user = db.query(User).filter_by(oauth_sub=sub).first()
                 return UserModel.model_validate(user)
+        except Exception:
+            return None
+
+    def get_user_by_omd_id(self, omd_id: str) -> Optional[UserModel]:
+        try:
+            with get_db() as db:
+                user = db.query(User).filter_by(omd_id=omd_id).first()
+                return UserModel.model_validate(user) if user else None
+        except Exception:
+            return None
+
+    def get_user_by_email_and_secret(self, email: str, secret_code: str) -> Optional[UserModel]:
+        try:
+            with get_db() as db:
+                user = db.query(User).filter_by(email=email, secret_code=secret_code).first()
+                return UserModel.model_validate(user) if user else None
+        except Exception:
+            return None
+
+    def update_user_secret_code(self, email: str, secret_code: str) -> Optional[UserModel]:
+        try:
+            with get_db() as db:
+                user = db.query(User).filter_by(email=email).first()
+                if user:
+                    user.secret_code = secret_code
+                    db.commit()
+                    db.refresh(user)
+                    return UserModel.model_validate(user)
+                return None
         except Exception:
             return None
 

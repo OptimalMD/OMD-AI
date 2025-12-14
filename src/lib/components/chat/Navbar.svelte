@@ -16,6 +16,8 @@
 		user
 	} from '$lib/stores';
 
+	import { userSignOut } from '$lib/apis/auths';
+
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -38,6 +40,9 @@
 	import ChatPlus from '../icons/ChatPlus.svelte';
 	import ChatCheck from '../icons/ChatCheck.svelte';
 	import Knobs from '../icons/Knobs.svelte';
+	import Phone from '../icons/Phone.svelte';
+	import Home from '../icons/Home.svelte';
+	import SignOut from '../icons/SignOut.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -111,7 +116,7 @@
 				<div class="self-start flex flex-none items-center text-gray-600 dark:text-gray-400">
 					<!-- <div class="md:hidden flex self-center w-[1px] h-5 mx-2 bg-gray-300 dark:bg-stone-700" /> -->
 
-					{#if $user?.role === 'user' ? ($user?.permissions?.chat?.temporary ?? true) && !($user?.permissions?.chat?.temporary_enforced ?? false) : true}
+					<!-- {#if $user?.role === 'user' ? ($user?.permissions?.chat?.temporary ?? true) && !($user?.permissions?.chat?.temporary_enforced ?? false) : true}
 						{#if !chat?.id}
 							<Tooltip content={$i18n.t(`Temporary Chat`)}>
 								<button
@@ -159,7 +164,7 @@
 								</button>
 							</Tooltip>
 						{/if}
-					{/if}
+					{/if} -->
 
 					{#if $mobile && !$temporaryChatEnabled && chat && chat.id}
 						<Tooltip content={$i18n.t('New Chat')}>
@@ -179,7 +184,7 @@
 						</Tooltip>
 					{/if}
 
-					{#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
+					<!-- {#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
 						<Menu
 							{chat}
 							{shareEnabled}
@@ -200,9 +205,9 @@
 								</div>
 							</button>
 						</Menu>
-					{/if}
+					{/if} -->
 
-					{#if $user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true)}
+					<!-- {#if $user?.role === 'admin' || ($user?.permissions.chat?.controls ?? true)}
 						<Tooltip content={$i18n.t('Controls')}>
 							<button
 								class=" flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
@@ -216,9 +221,126 @@
 								</div>
 							</button>
 						</Tooltip>
-					{/if}
+				{/if} -->
 
-					{#if $user !== undefined && $user !== null}
+				{#if $user?.user_type === 'omd'}
+					<Tooltip content={$i18n.t('Talk to Board-Certified Physician Immediately (At No Cost!)')}>
+						<div aria-label="Talk to Board-Certified Physician Immediately (At No Cost!)" class="flex">
+							<button
+								aria-label="Talk to Board-Certified Physician Immediately (At No Cost!)"
+								on:click={async () => {
+									try {
+										const email = $user?.email;
+										if (!email) {
+											toast.error('User email not found');
+											return;
+										}
+										
+										const response = await fetch(`https://server.optimalmd.com/api/omdai/getlyris?email=${encodeURIComponent(email)}`);
+										const data = await response.json();
+										
+										if (data.redirectURL) {
+											window.location.href = data.redirectURL;
+										} else {
+											toast.error('Redirect URL not found');
+										}
+									} catch (error) {
+										console.error('Error calling API:', error);
+										toast.error('Failed to connect to physician portal');
+									}
+								}}
+							>
+								<div class="m-auto self-center">
+									<div class="flex items-center justify-between bg-[#F0F0F0] hover:bg-[#CDCFD2] rounded-full w-max transition py-0.5">
+										<div class="flex items-center space-x-1">
+											<div class="relative w-6 h-6 ml-0.5">
+												<img
+													src="/doctor-avatar.png"
+													alt="Doctor Avatar"
+													class="w-6 h-6 rounded-full object-cover"
+												/>
+												<span class="absolute top-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full ring-1 ring-white animate-pulse"></span>
+											</div>
+											<span class="text-[11px] font-medium text-gray-800 hidden md:inline">
+												Talk to Board-Certified Physician Immediately (<span class="text-green-400 font-bold">At No Cost!</span>)
+											</span>
+										</div>
+										<div class="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center ml-1 mr-0.5 hidden md:flex">
+											<Phone className="size-3.5 text-white" strokeWidth="2" />
+										</div>
+									</div>
+								</div>
+							</button>
+						</div>
+					</Tooltip>
+
+					<Tooltip content={$i18n.t('Home')}>
+						<button
+							class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+							on:click={() => {
+								window.location.href = 'https://portal.optimalmd.com';
+							}}
+							aria-label="Home"
+						>
+							<div class="m-auto self-center">
+								<Home className="size-5" strokeWidth="1.5" />
+							</div>
+						</button>
+					</Tooltip>
+				{/if}
+
+				{#if $user?.user_type === 'guest'}
+					<Tooltip content={$i18n.t('Join OptimalMD and Speak with a Physician Immediately')}>
+						<div aria-label="Join OptimalMD and Speak with a Physician Immediately" class="flex">
+							<button
+								aria-label="Join OptimalMD and Speak with a Physician Immediately"
+								on:click={() => {
+									window.location.href = 'https://portal.optimalmd.com/register';
+								}}
+							>
+								<div class="m-auto self-center">
+									<div class="flex items-center justify-between bg-[#F0F0F0] hover:bg-[#CDCFD2] rounded-full w-max transition py-0.5">
+										<div class="flex items-center space-x-1">
+											<div class="relative w-6 h-6 ml-0.5">
+												<img
+													src="/doctor-avatar.png"
+													alt="Doctor Avatar"
+													class="w-6 h-6 rounded-full object-cover"
+												/>
+												<span class="absolute top-0 right-0 w-1.5 h-1.5 bg-green-500 rounded-full ring-1 ring-white animate-pulse"></span>
+											</div>
+											<span class="text-[11px] font-medium text-gray-800 hidden md:inline">
+												Join OptimalMD and Speak with a Physician Immediately
+											</span>
+										</div>
+										<div class="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center ml-1 mr-0.5 hidden md:flex">
+											<Phone className="size-3.5 text-white" strokeWidth="2" />
+										</div>
+									</div>
+								</div>
+							</button>
+						</div>
+					</Tooltip>
+
+					<Tooltip content={$i18n.t('Terminate Session')}>
+						<button
+							class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
+							on:click={async () => {
+								const res = await userSignOut();
+								user.set(null);
+								localStorage.removeItem('token');
+								location.href = res?.redirect_url ?? '/auth';
+							}}
+							aria-label="Terminate Session"
+						>
+							<div class="m-auto self-center">
+								<SignOut className="size-5" strokeWidth="1.5" />
+							</div>
+						</button>
+					</Tooltip>
+				{/if}					
+				
+				{#if $user !== undefined && $user !== null && $user?.user_type !== 'guest'}
 						<UserMenu
 							className="max-w-[240px]"
 							role={$user?.role}

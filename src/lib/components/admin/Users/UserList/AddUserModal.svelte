@@ -129,10 +129,10 @@
 
 <Modal size="sm" bind:show>
 	<div>
-		<div class=" flex justify-between dark:text-gray-300 px-5 pt-4 pb-2">
-			<div class=" text-lg font-medium self-center">{$i18n.t('Add User')}</div>
+		<div class="flex justify-between dark:text-gray-300 px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+			<div class="text-lg font-semibold self-center text-gray-900 dark:text-white">{$i18n.t('Add User')}</div>
 			<button
-				class="self-center"
+				class="self-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
 				on:click={() => {
 					show = false;
 				}}
@@ -149,13 +149,11 @@
 						submitHandler();
 					}}
 				>
-					<div
-						class="flex -mt-2 mb-1.5 gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-full bg-transparent dark:text-gray-200"
-					>
+					<div class="flex gap-4 mb-4 border-b border-gray-200 dark:border-gray-800">
 						<button
-							class="min-w-fit p-1.5 {tab === ''
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="pb-2 text-sm font-medium transition {tab === ''
+								? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
 							type="button"
 							on:click={() => {
 								tab = '';
@@ -163,9 +161,9 @@
 						>
 
 						<button
-							class="min-w-fit p-1.5 {tab === 'import'
-								? ''
-								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							class="pb-2 text-sm font-medium transition {tab === 'import'
+								? 'text-gray-900 dark:text-white border-b-2 border-gray-900 dark:border-white'
+								: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
 							type="button"
 							on:click={() => {
 								tab = 'import';
@@ -175,12 +173,12 @@
 
 					<div class="px-1">
 						{#if tab === ''}
-							<div class="flex flex-col w-full mb-3">
-								<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Role')}</div>
+							<div class="flex flex-col w-full mb-4">
+								<label class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{$i18n.t('Role')}</label>
 
 								<div class="flex-1">
 									<select
-										class="w-full capitalize rounded-lg text-sm bg-transparent dark:disabled:text-gray-500 outline-hidden"
+										class="w-full capitalize rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-850 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent outline-none transition"
 										bind:value={_user.role}
 										placeholder={$i18n.t('Enter Your Role')}
 										required
@@ -192,12 +190,12 @@
 								</div>
 							</div>
 
-							<div class="flex flex-col w-full mt-1">
-								<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Name')}</div>
+							<div class="flex flex-col w-full mb-4">
+								<label class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{$i18n.t('Name')}</label>
 
 								<div class="flex-1">
 									<input
-										class="w-full text-sm bg-transparent disabled:text-gray-500 dark:disabled:text-gray-500 outline-hidden"
+										class="w-full rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-850 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent outline-none transition"
 										type="text"
 										bind:value={_user.name}
 										placeholder={$i18n.t('Enter Your Full Name')}
@@ -207,14 +205,12 @@
 								</div>
 							</div>
 
-							<hr class=" border-gray-100 dark:border-gray-850 my-2.5 w-full" />
-
-							<div class="flex flex-col w-full">
-								<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Email')}</div>
+							<div class="flex flex-col w-full mb-4">
+								<label class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{$i18n.t('Email')}</label>
 
 								<div class="flex-1">
 									<input
-										class="w-full text-sm bg-transparent disabled:text-gray-500 dark:disabled:text-gray-500 outline-hidden"
+										class="w-full rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-850 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent outline-none transition"
 										type="email"
 										bind:value={_user.email}
 										placeholder={$i18n.t('Enter Your Email')}
@@ -223,23 +219,25 @@
 								</div>
 							</div>
 
-							<div class="flex flex-col w-full mt-1">
-								<div class=" mb-1 text-xs text-gray-500">{$i18n.t('Password')}</div>
+						<div class="flex flex-col w-full">
+							<label class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{$i18n.t('Password')}</label>
 
-								<div class="flex-1">
-									<SensitiveInput
-										class="w-full text-sm bg-transparent disabled:text-gray-500 dark:disabled:text-gray-500 outline-hidden"
-										type="password"
-										bind:value={_user.password}
-										placeholder={$i18n.t('Enter Your Password')}
-										autocomplete="off"
-										required
-									/>
-								</div>
+							<div class="flex-1">
+								<SensitiveInput
+									outerClassName="flex flex-1 bg-white dark:bg-gray-850 border border-gray-300 dark:border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-600 focus-within:border-transparent transition"
+									inputClassName="w-full rounded-lg px-3 py-2.5 text-sm bg-transparent text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+									showButtonClassName="pr-3 transition text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+									type="password"
+									bind:value={_user.password}
+									placeholder={$i18n.t('Enter Your Password')}
+									autocomplete="off"
+									required
+								/>
 							</div>
+						</div>
 						{:else if tab === 'import'}
 							<div>
-								<div class="mb-3 w-full">
+								<div class="mb-4 w-full">
 									<input
 										id="upload-user-csv-input"
 										hidden
@@ -249,7 +247,7 @@
 									/>
 
 									<button
-										class="w-full text-sm font-medium py-3 bg-transparent hover:bg-gray-100 border border-dashed dark:border-gray-850 dark:hover:bg-gray-850 text-center rounded-xl"
+										class="w-full text-sm font-medium py-8 bg-white dark:bg-gray-850 hover:bg-gray-50 dark:hover:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 text-gray-600 dark:text-gray-400 text-center rounded-lg transition"
 										type="button"
 										on:click={() => {
 											document.getElementById('upload-user-csv-input')?.click();
@@ -263,12 +261,14 @@
 									</button>
 								</div>
 
-								<div class=" text-xs text-gray-500">
-									ⓘ {$i18n.t(
-										'Ensure your CSV file includes 4 columns in this order: Name, Email, Password, Role.'
-									)}
+								<div class="text-xs text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+									<div class="mb-2">
+										ⓘ {$i18n.t(
+											'Ensure your CSV file includes 4 columns in this order: Name, Email, Password, Role.'
+										)}
+									</div>
 									<a
-										class="underline dark:text-gray-200"
+										class="underline text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
 										href="{WEBUI_BASE_URL}/static/user-import.csv"
 									>
 										{$i18n.t('Click here to download user import template file.')}
@@ -278,19 +278,17 @@
 						{/if}
 					</div>
 
-					<div class="flex justify-end pt-3 text-sm font-medium">
+					<div class="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-800 mt-6">
 						<button
-							class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full flex flex-row space-x-1 items-center {loading
-								? ' cursor-not-allowed'
-								: ''}"
+							class="px-6 py-2.5 text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition rounded-lg flex flex-row space-x-2 items-center disabled:opacity-50 disabled:cursor-not-allowed"
 							type="submit"
 							disabled={loading}
 						>
-							{$i18n.t('Save')}
+							<span>{$i18n.t('Save')}</span>
 
 							{#if loading}
-								<div class="ml-2 self-center">
-									<Spinner />
+								<div class="self-center">
+									<Spinner className="size-4" />
 								</div>
 							{/if}
 						</button>

@@ -8,9 +8,9 @@
 	export let type = 'text';
 	export let required = true;
 	export let readOnly = false;
-	export let outerClassName = 'flex flex-1 bg-transparent';
-	export let inputClassName = 'w-full text-sm py-0.5 bg-transparent';
-	export let showButtonClassName = 'pl-1.5  transition bg-transparent';
+	export let outerClassName = 'relative flex items-center';
+	export let inputClassName = 'w-full text-sm py-0.5 bg-transparent pr-10';
+	export let showButtonClassName = 'absolute right-3 transition bg-transparent';
 
 	let show = false;
 </script>

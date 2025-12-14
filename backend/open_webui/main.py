@@ -93,6 +93,8 @@ from open_webui.routers import (
     users,
     utils,
     scim,
+    subscriptions,
+    organizations,
 )
 
 from open_webui.routers.retrieval import (
@@ -597,6 +599,18 @@ async def lifespan(app: FastAPI):
         limiter.total_tokens = THREAD_POOL_SIZE
 
     asyncio.create_task(periodic_usage_pool_cleanup())
+
+    # Start periodic guest user cleanup (runs every hour)
+    async def periodic_guest_cleanup():
+        from open_webui.utils.guest_cleanup import cleanup_expired_guest_users
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Run every hour
+                cleanup_expired_guest_users()
+            except Exception as e:
+                log.error(f"Error in periodic guest cleanup: {str(e)}")
+    
+    asyncio.create_task(periodic_guest_cleanup())
 
     if app.state.config.ENABLE_BASE_MODELS_CACHE:
         await get_all_models(
@@ -1332,6 +1346,7 @@ app.include_router(configs.router, prefix="/api/v1/configs", tags=["configs"])
 
 app.include_router(auths.router, prefix="/api/v1/auths", tags=["auths"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(subscriptions.router, prefix="/api/v1/subscriptions", tags=["subscriptions"])
 
 
 app.include_router(channels.router, prefix="/api/v1/channels", tags=["channels"])
@@ -1347,6 +1362,7 @@ app.include_router(tools.router, prefix="/api/v1/tools", tags=["tools"])
 app.include_router(memories.router, prefix="/api/v1/memories", tags=["memories"])
 app.include_router(folders.router, prefix="/api/v1/folders", tags=["folders"])
 app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
+app.include_router(organizations.router, prefix="/api/v1/organizations", tags=["organizations"])
 app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
 app.include_router(functions.router, prefix="/api/v1/functions", tags=["functions"])
 app.include_router(

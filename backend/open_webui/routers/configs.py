@@ -438,8 +438,8 @@ async def set_code_execution_config(
 # SetDefaultModels
 ############################
 class ModelsConfigForm(BaseModel):
-    DEFAULT_MODELS: Optional[str]
-    MODEL_ORDER_LIST: Optional[list[str]]
+    DEFAULT_MODELS: Optional[str] = None
+    MODEL_ORDER_LIST: Optional[list[str]] = None
 
 
 @router.get("/models", response_model=ModelsConfigForm)
@@ -456,6 +456,7 @@ async def set_models_config(
 ):
     request.app.state.config.DEFAULT_MODELS = form_data.DEFAULT_MODELS
     request.app.state.config.MODEL_ORDER_LIST = form_data.MODEL_ORDER_LIST
+    
     return {
         "DEFAULT_MODELS": request.app.state.config.DEFAULT_MODELS,
         "MODEL_ORDER_LIST": request.app.state.config.MODEL_ORDER_LIST,
@@ -508,3 +509,6 @@ async def get_banners(
     user=Depends(get_verified_user),
 ):
     return request.app.state.config.BANNERS
+
+
+

@@ -79,73 +79,77 @@
 	}}
 />
 
-<div class="flex flex-col self-start group">
-	<div class="self-center flex">
-		<button
-			class="relative rounded-full dark:bg-gray-700"
-			type="button"
-			on:click={() => {
-				profileImageInputElement.click();
-			}}
-		>
-			<img
-				src={profileImageUrl !== '' ? profileImageUrl : generateInitialsImage(user?.name)}
-				alt="profile"
-				class=" rounded-full {imageClassName} object-cover"
-			/>
+<div class="flex items-start gap-4">
+	<button
+		class="relative rounded-full dark:bg-gray-700 flex-shrink-0"
+		type="button"
+		on:click={() => {
+			profileImageInputElement.click();
+		}}
+	>
+		<img
+			src={profileImageUrl !== '' ? profileImageUrl : generateInitialsImage(user?.name)}
+			alt="profile"
+			class="rounded-full {imageClassName} object-cover"
+		/>
 
-			<div class="absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition">
-				<div class="p-1 rounded-full bg-white text-black border-gray-100 shadow">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						class="size-3"
-					>
-						<path
-							d="m2.695 14.762-1.262 3.155a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.886L17.5 5.501a2.121 2.121 0 0 0-3-3L3.58 13.419a4 4 0 0 0-.885 1.343Z"
-						/>
-					</svg>
-				</div>
+		<div class="absolute bottom-0 right-0 opacity-0 hover:opacity-100 transition">
+			<div class="p-1 rounded-full bg-white text-black border-gray-100 shadow">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 20 20"
+					fill="currentColor"
+					class="size-3"
+				>
+					<path
+						d="m2.695 14.762-1.262 3.155a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.886L17.5 5.501a2.121 2.121 0 0 0-3-3L3.58 13.419a4 4 0 0 0-.885 1.343Z"
+					/>
+				</svg>
 			</div>
-		</button>
-	</div>
-	<div class="flex flex-col w-full justify-center mt-2">
-		<button
-			class=" text-xs text-center text-gray-500 rounded-lg py-0.5 opacity-0 group-hover:opacity-100 transition-all"
-			type="button"
-			on:click={async () => {
-				profileImageUrl = `${WEBUI_BASE_URL}/user.png`;
-			}}>{$i18n.t('Remove')}</button
-		>
+		</div>
+	</button>
 
-		<button
-			class=" text-xs text-center text-gray-800 dark:text-gray-400 rounded-lg py-0.5 opacity-0 group-hover:opacity-100 transition-all"
-			type="button"
-			on:click={async () => {
-				if (canvasPixelTest()) {
-					profileImageUrl = generateInitialsImage(user?.name);
-				} else {
-					toast.info(
-						$i18n.t(
-							'Fingerprint spoofing detected: Unable to use initials as avatar. Defaulting to default profile image.'
-						),
-						{
-							duration: 1000 * 10
-						}
-					);
-				}
-			}}>{$i18n.t('Initials')}</button
-		>
+	<div class="flex flex-col justify-center flex-1">
+		<div class="text-sm font-semibold mb-1">{$i18n.t('Profile Image')}</div>
+		<div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+			{$i18n.t('Change your profile photo')}
+		</div>
+		<div class="flex gap-2">
+			<button
+				class="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
+				type="button"
+				on:click={async () => {
+					if (canvasPixelTest()) {
+						profileImageUrl = generateInitialsImage(user?.name);
+					} else {
+						toast.info(
+							$i18n.t(
+								'Fingerprint spoofing detected: Unable to use initials as avatar. Defaulting to default profile image.'
+							),
+							{
+								duration: 1000 * 10
+							}
+						);
+					}
+				}}>{$i18n.t('Use Initials')}</button
+			>
 
-		<button
-			class=" text-xs text-center text-gray-800 dark:text-gray-400 rounded-lg py-0.5 opacity-0 group-hover:opacity-100 transition-all"
-			type="button"
-			on:click={async () => {
-				const url = await getGravatarUrl(localStorage.token, user?.email);
+			<button
+				class="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition"
+				type="button"
+				on:click={async () => {
+					const url = await getGravatarUrl(localStorage.token, user?.email);
+					profileImageUrl = url;
+				}}>{$i18n.t('Use Gravatar')}</button
+			>
 
-				profileImageUrl = url;
-			}}>{$i18n.t('Gravatar')}</button
-		>
+			<button
+				class="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+				type="button"
+				on:click={async () => {
+					profileImageUrl = `${WEBUI_BASE_URL}/user.png`;
+				}}>{$i18n.t('Remove')}</button
+			>
+		</div>
 	</div>
 </div>

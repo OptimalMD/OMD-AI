@@ -110,11 +110,9 @@ for source in log_sources:
 
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
-WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
-if WEBUI_NAME != "Open WebUI":
-    WEBUI_NAME += " (Open WebUI)"
+WEBUI_NAME = os.environ.get("WEBUI_NAME", "OptimalMD")
 
-WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
+WEBUI_FAVICON_URL = "https://ai.optimalmd.com/favicon.png"
 
 TRUSTED_SIGNATURE_KEY = os.environ.get("TRUSTED_SIGNATURE_KEY", "")
 
@@ -345,7 +343,7 @@ else:
         DATABASE_POOL_RECYCLE = 3600
 
 DATABASE_ENABLE_SQLITE_WAL = (
-    os.environ.get("DATABASE_ENABLE_SQLITE_WAL", "False").lower() == "true"
+    os.environ.get("DATABASE_ENABLE_SQLITE_WAL", "True").lower() == "true"
 )
 
 DATABASE_USER_ACTIVE_STATUS_UPDATE_INTERVAL = os.environ.get(

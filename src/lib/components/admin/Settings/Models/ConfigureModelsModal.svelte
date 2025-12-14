@@ -65,6 +65,7 @@
 		} else {
 			defaultModelIds = [];
 		}
+
 		const modelOrderList = config.MODEL_ORDER_LIST || [];
 		const allModelIds = $models.map((model) => model.id);
 
@@ -86,7 +87,8 @@
 
 		const res = await setModelsConfig(localStorage.token, {
 			DEFAULT_MODELS: defaultModelIds.join(','),
-			MODEL_ORDER_LIST: modelIds
+			MODEL_ORDER_LIST: modelIds,
+			GUEST_MODELS: guestModelIds
 		});
 
 		if (res) {
