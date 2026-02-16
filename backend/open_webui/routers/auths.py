@@ -610,31 +610,31 @@ async def omd_signup(
                 Users.update_user_by_id(user.id, {"omd_id": omd_id})
             
             if updated_user:
-                # Add user to OMD group
+                # Add user to OMD Members group
                 from open_webui.models.groups import Groups
                 try:
                     all_groups = Groups.get_groups()
                     omd_group = None
                     for group in all_groups:
-                        if group.name == "OMD":
+                        if group.name == "OMD Members":
                             omd_group = group
                             break
                     
-                    # If OMD group doesn't exist, create it
+                    # If OMD Members group doesn't exist, create it
                     if not omd_group:
                         from open_webui.models.groups import GroupForm
                         group_form = GroupForm(
-                            name="OMD",
-                            description="OMD Users Group",
+                            name="OMD Members",
+                            description="OMD Members who have used the system.",
                             user_ids=[]
                         )
                         omd_group = Groups.insert_new_group(user.id, group_form)
-                        log.info(f"Created OMD group: {omd_group.id}")
+                        log.info(f"Created OMD Members group: {omd_group.id}")
                     
-                    # Add user to the OMD group
+                    # Add user to the OMD Members group
                     if omd_group:
                         Groups.add_users_to_group(omd_group.id, [user.id])
-                        log.info(f"Added OMD user {user.id} to OMD group")
+                        log.info(f"Added OMD user {user.id} to OMD Members group")
                 except Exception as e:
                     log.error(f"Error adding OMD user to group: {str(e)}")
                 
@@ -1206,7 +1206,8 @@ async def forgot_password(request: Request, form_data: ForgotPasswordForm):
         smtp_from_name = SMTP_FROM_NAME.value if hasattr(SMTP_FROM_NAME, 'value') else SMTP_FROM_NAME or "OptimalMD"
         smtp_use_tls = SMTP_USE_TLS.value if hasattr(SMTP_USE_TLS, 'value') else SMTP_USE_TLS
         
-        if not all([smtp_host, smtp_port, smtp_username, smtp_password, smtp_from_email]):
+        # Allow empty password for relay servers (like port 25)
+        if not all([smtp_host, smtp_port, smtp_username, smtp_from_email]):
             log.error("SMTP is not configured properly")
             raise HTTPException(
                 status_code=503,
@@ -1222,7 +1223,7 @@ async def forgot_password(request: Request, form_data: ForgotPasswordForm):
             )
         
         # Create reset link
-        base_url = str(request.base_url).rstrip('/')
+        base_url = "http://ai.optimalmd.com"
         reset_link = f"{base_url}/auth/reset-password?token={reset_token.token}"
         
         # Send password reset email

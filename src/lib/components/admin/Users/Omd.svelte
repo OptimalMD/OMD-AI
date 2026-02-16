@@ -49,10 +49,10 @@
 	const fetchData = async () => {
 		// Get all groups
 		const groups: Group[] = await getGroups(localStorage.token);
-		omdGroup = groups.find((g: Group) => g.name.toLowerCase() === 'omd') || null;
+		omdGroup = groups.find((g: Group) => g.name.toLowerCase() === 'omd members') || null;
 
 		if (!omdGroup) {
-			toast.error(i18n.t('OMD group not found'));
+			toast.error(i18n.t('OMD Members group not found'));
 			return;
 		}
 
@@ -80,7 +80,7 @@
 		});
 		allModels = Array.from(modelMap.values());
 
-		// Filter models that have OMD group in their access control
+		// Filter models that have OMD Members group in their access control
 		omdModels = allModels.filter((model: Model) => {
 			// Check if model has access_control
 			const accessControl = model.access_control || model.info?.access_control;
@@ -95,7 +95,7 @@
 		loaded = true;
 	};
 
-	// Get all models that are not in OMD group
+	// Get all models that are not in OMD Members group
 	$: availableModels = allModels.filter((model: Model) => {
 		const accessControl = model.access_control || model.info?.access_control;
 		if (!accessControl) return true;
@@ -136,7 +136,7 @@
 				console.error('Update failed', result);
 				throw new Error(result?.error || 'Update failed');
 			}
-			toast.success($i18n.t('Model added to OMD group'));
+			toast.success($i18n.t('Model added to OMD Members group'));
 			showAddModelModal = false;
 			selectedModelId = '';
 			await fetchData();
@@ -148,7 +148,7 @@
 		}
 	}
 
-	// Remove OMDs group from model
+	// Remove OMD Members group from model
 	async function handleRemoveModelFromGroup(modelId: string) {
 		if (!omdGroup) return;
 		try {
@@ -160,7 +160,7 @@
 			ac.write = ac.write || { group_ids: [] };
 			if (!Array.isArray(ac.read.group_ids)) ac.read.group_ids = [];
 			if (!Array.isArray(ac.write.group_ids)) ac.write.group_ids = [];
-			// Remove OMD group from both read and write
+			// Remove OMD Members group from both read and write
 			ac.read.group_ids = ac.read.group_ids.filter((id: string) => id !== omdGroup.id);
 			ac.write.group_ids = ac.write.group_ids.filter((id: string) => id !== omdGroup.id);
 			const updatePayload: any = {
@@ -171,7 +171,7 @@
 			if (!result || result.error) {
 				throw new Error(result?.error || 'Update failed');
 			}
-			toast.success($i18n.t('Model removed from OMD group'));
+			toast.success($i18n.t('Model removed from OMD Members group'));
 			await fetchData();
 		} catch (e) {
 			console.error('Failed to remove model from group:', e);
@@ -241,7 +241,7 @@
 				<div class="text-sm text-gray-500 dark:text-gray-400">
 					{search
 						? $i18n.t('Try adjusting your search query')
-						: $i18n.t('Assign models to the OMD group to see them here')}
+					: $i18n.t('Assign models to the OMD Members group to see them here')}
 				</div>
 			</div>
 		{:else}
@@ -287,7 +287,7 @@
 	<Modal bind:show={showAddModelModal} size="sm">
 		<div class="p-4">
 			<div class="flex justify-between items-center mb-4">
-				<h3 class="text-lg font-semibold">{$i18n.t('Add Model to OMD Group')}</h3>
+				<h3 class="text-lg font-semibold">{$i18n.t('Add Model to OMD Members Group')}</h3>
 				<button
 					class="text-gray-400 hover:text-gray-600"
 					on:click={() => (showAddModelModal = false)}><XMark className="w-5 h-5" /></button

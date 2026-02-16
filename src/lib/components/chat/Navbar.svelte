@@ -240,7 +240,18 @@
 										const data = await response.json();
 										
 										if (data.redirectURL) {
+										try {
+											// Try to redirect parent window if accessible
+											if (window.top !== window.self) {
+												window.top.location.href = data.redirectURL;
+											} else {
+												window.location.href = data.redirectURL;
+											}
+										} catch (e) {
+											// Cross-origin restriction - use postMessage or redirect iframe
+											console.warn('Cannot access parent window due to cross-origin policy. Redirecting iframe instead.');
 											window.location.href = data.redirectURL;
+										}
 										} else {
 											toast.error('Redirect URL not found');
 										}
@@ -278,7 +289,7 @@
 						<button
 							class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"
 							on:click={() => {
-								window.location.href = 'https://portal.optimalmd.com';
+								window.top.location.href = 'https://portal.optimalmd.com';
 							}}
 							aria-label="Home"
 						>

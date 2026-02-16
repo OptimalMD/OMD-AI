@@ -74,9 +74,13 @@ class EmailService:
                 server = smtplib.SMTP(self.smtp_host, self.smtp_port)
                 server.starttls()
             else:
-                server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port)
+                # For non-TLS connections, use plain SMTP (not SMTP_SSL)
+                server = smtplib.SMTP(self.smtp_host, self.smtp_port)
             
-            server.login(self.smtp_username, self.smtp_password)
+            # Only login if credentials are provided
+            if self.smtp_username and self.smtp_password:
+                server.login(self.smtp_username, self.smtp_password)
+            
             server.send_message(msg)
             server.quit()
             
@@ -364,7 +368,7 @@ def get_password_reset_email_template(user_name: str, reset_password: str) -> st
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }}
         .header {{
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: linear-gradient(135deg, #1d1a37 0%, #1d1a37 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
@@ -379,7 +383,7 @@ def get_password_reset_email_template(user_name: str, reset_password: str) -> st
         }}
         .info-box {{
             background-color: #fef2f2;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #1d1a37;
             padding: 20px;
             margin: 25px 0;
             border-radius: 4px;
@@ -391,14 +395,14 @@ def get_password_reset_email_template(user_name: str, reset_password: str) -> st
             background-color: #f9fafb;
             padding: 15px;
             border-radius: 4px;
-            border: 2px solid #dc2626;
+            border: 2px solid #1d1a37;
             text-align: center;
             margin: 20px 0;
             letter-spacing: 2px;
         }}
         .cta-button {{
             display: inline-block;
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: linear-gradient(135deg, #1d1a37 0%, #1d1a37 100%);
             color: white;
             text-decoration: none;
             padding: 14px 32px;
@@ -502,7 +506,7 @@ def get_password_reset_link_email_template(user_name: str, reset_link: str) -> s
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }}
         .header {{
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: linear-gradient(135deg, #1d1a37 0%, #1d1a37 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
@@ -527,14 +531,14 @@ def get_password_reset_link_email_template(user_name: str, reset_link: str) -> s
         }}
         .info-box {{
             background-color: #fef2f2;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid #1d1a37;
             padding: 20px;
             margin: 25px 0;
             border-radius: 4px;
         }}
         .cta-button {{
             display: inline-block;
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: linear-gradient(135deg, #1d1a37 0%, #1d1a37 100%);
             color: white !important;
             text-decoration: none;
             padding: 16px 40px;

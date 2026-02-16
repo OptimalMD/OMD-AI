@@ -1577,16 +1577,17 @@ def validate_cors_origin(origin):
 # To test CORS_ALLOW_ORIGIN locally, you can set something like
 # CORS_ALLOW_ORIGIN=http://localhost:5173;http://localhost:8080
 # in your .env file depending on your frontend port, 5173 in this case.
-CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "http://localhost:5173").split(";")
+CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "http://192.168.168.100:5173;http://192.168.168.100:8080;https://ai.optimalmd.com;https://ai.optimalmd.com:8080;http://localhost:5173").split(";")
 
 # Allows custom URL schemes (e.g., app://) to be used as origins for CORS.
 # Useful for local development or desktop clients with schemes like app:// or other custom protocols.
 # Provide a semicolon-separated list of allowed schemes in the environment variable CORS_ALLOW_CUSTOM_SCHEMES.
 CORS_ALLOW_CUSTOM_SCHEME = os.environ.get("CORS_ALLOW_CUSTOM_SCHEME", "").split(";")
 
-if CORS_ALLOW_ORIGIN == ["*"]:
+# Check if the origins are in the list and log a warning
+if "http://192.168.168.100:5173" in CORS_ALLOW_ORIGIN or "http://192.168.168.100:8080" in CORS_ALLOW_ORIGIN or "https://ai.optimalmd.com:8080" in CORS_ALLOW_ORIGIN or "https://ai.optimalmd.com"  in CORS_ALLOW_ORIGIN or "http://localhost:5173"  in CORS_ALLOW_ORIGIN:
     log.warning(
-        "\n\nWARNING: CORS_ALLOW_ORIGIN IS SET TO '*' - NOT RECOMMENDED FOR PRODUCTION DEPLOYMENTS.\n"
+        "\n\nWARNING: CORS_ALLOW_ORIGIN IS SET TO 'http://192.168.168.100:5173' or 'https://ai.optimalmd.com' - NOT RECOMMENDED FOR PRODUCTION DEPLOYMENTS.\n"
     )
 else:
     # You have to pick between a single wildcard or a list of origins.

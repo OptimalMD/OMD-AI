@@ -10,7 +10,7 @@
 
 <div class="mt-4">
 	<div class="text-sm font-medium">
-		{$i18n.t('Follow up')}
+		{$i18n.t('Suggested Follow Up Questions')}
 	</div>
 
 	<div class="flex flex-col text-left gap-1 mt-1.5">
@@ -19,7 +19,7 @@
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
 			<Tooltip content={followUp} placement="top-start" className="line-clamp-1">
 				<div
-					class=" py-1.5 bg-transparent text-left text-sm flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition cursor-pointer"
+					class=" py-1.5 bg-transparent text-left text-sm flex items-center gap-2 text-gray-900 dark:text-gray-200 hover:text-black dark:hover:text-white transition cursor-pointer"
 					on:click={() => onClick(followUp)}
 					aria-label={followUp}
 				>
